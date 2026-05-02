@@ -1,0 +1,164 @@
+---
+title: "Migrate from any Postgres with pg_dump"
+description: "Export your Postgres database with pg_dump and restore it to Neon using pg_restore. Covers flags, ownership, piping, and post-migration steps."
+keywords: ["pg_dump", "pg_restore", "postgres migration", "migrate to neon", "database import"]
+---
+
+`pg_dump` and `pg_restore` are the standard tools for migrating a Postgres database to Neon. This guide covers the full process: exporting your source database, creating a target database in Neon, restoring the dump, and verifying the result. Repeat this process for each database you want to migrate.
+
+<Note>
+Always use an [unpooled connection string](/reference/glossary#unpooled-connection-string) with `pg_dump`. Running it over a pooled connection can cause errors due to known PgBouncer issues ([#452](https://github.com/pgbouncer/pgbouncer/issues/452), [#976](https://github.com/pgbouncer/pgbouncer/issues/976)).
+</Note>
+
+## Prerequisites
+
+- `pg_dump` and `pg_restore` installed. These come with any standard Postgres installation. Use the latest version for best results — check with `pg_dump -V`.
+- Neon supports PostgreSQL 14, 15, 16, and 17. Use client tools that match your source Postgres version.
+- A connection string for your source database.
+- A Neon project. If you don't have one, see [Create a project](/manage/projects#create-a-project).
+
+## Step-by-step migration
+
+<Steps>
+  <Step title="Create a target database in Neon">
+    Create a database in your Neon project that matches the name of the database you're migrating. For example, if your source database is named `pagila`, create `pagila` in Neon.
+
+    You can do this from the [Neon SQL Editor](/get-started/signing-up) or psql:
+
+    ```sql
+    CREATE DATABASE pagila;
+    ```
+
+    For more detail, see [Create a database](/manage/projects).
+  </Step>
+
+  <Step title="Get your Neon connection string">
+    In the Neon Console, open your project dashboard and click **Connect**. Copy the unpooled connection string for your target database. It looks like this:
+
+    ```text shouldWrap
+    postgresql://[user]:[password]@[neon_hostname]/[dbname]
+    ```
+  </Step>
+
+  <Step title="Export data with pg_dump">
+    Run `pg_dump` against your source database to produce a custom-format archive:
+
+    ```bash shouldWrap
+    pg_dump -Fc -v -d <source_database_connection_string> -f mydumpfile.bak
+    ```
+
+    Flag reference:
+
+    - `-Fc` — Custom format, compressed and compatible with `pg_restore`.
+    - `-v` — Verbose mode so you can monitor progress.
+    - `-d` — Source database connection string or name.
+    - `-f` — Output file name (any name works; `.bak` is conventional).
+
+    For large databases, consider adding `-j <njobs>` to dump tables in parallel, where `<njobs>` is the number of available CPUs.
+  </Step>
+
+  <Step title="Restore to Neon with pg_restore">
+    Restore the dump file to your Neon database:
+
+    ```bash shouldWrap
+    pg_restore -v -d <neon_database_connection_string> mydumpfile.bak
+    ```
+
+    If your source database has objects owned by multiple roles, add `--no-owner` to avoid non-fatal errors during restore:
+
+    ```bash shouldWrap
+    pg_restore -v -O -d <neon_database_connection_string> mydumpfile.bak
+    ```
+
+    For large databases, use `-j <njobs>` to run the restore in parallel.
+  </Step>
+
+  <Step title="Verify the migration">
+    Connect to your Neon database and run queries to confirm the data looks correct. Compare row counts and spot-check key tables against your source:
+
+    ```sql
+    SELECT COUNT(*) FROM your_table;
+    ```
+  </Step>
+
+  <Step title="Update your application">
+    Point your application's connection string to Neon. You can find connection details by clicking **Connect** on your project dashboard. See [Connect from any application](/connect/overview) if you run into issues.
+  </Step>
+</Steps>
+
+## Full example
+
+The following example migrates a `pagila` database end-to-end:
+
+```bash shouldWrap
+# Export from source
+pg_dump -Fc -v -d postgresql://[user]:[password]@[source_host]/pagila -f pagila_dump.bak
+
+# Restore to Neon
+pg_restore -v -d postgresql://[user]:[password]@[neon_hostname]/pagila pagila_dump.bak
+```
+
+## Pipe pg_dump directly to pg_restore
+
+For small databases where the source and target are compatible, you can pipe `pg_dump` output directly into `pg_restore` to skip the intermediate file:
+
+```bash shouldWrap
+pg_dump -Fc -v -d <source_database_connection_string> | pg_restore -v -d <neon_database_connection_string>
+```
+
+<Warning>
+Piping is not recommended for large databases — it can fail mid-transfer with no easy way to resume. If you're unsure about compatibility, use separate dump and restore steps so you can adjust options or inspect the dump file if something goes wrong.
+</Warning>
+
+The directory format (`-Fd`) cannot be piped. Use custom format (`-Fc`) when piping.
+
+## Database object ownership
+
+Neon roles are granted membership in the `neon_superuser` role, but `neon_superuser` is not a true PostgreSQL superuser and cannot run `ALTER OWNER` statements. If your source database has objects owned by different roles, your dump file will include `ALTER OWNER` statements that produce non-fatal errors on restore.
+
+<Note>
+These errors don't prevent a successful restore. Tables are created, data is imported, and other objects are set up correctly — ownership assignment is the only thing skipped.
+</Note>
+
+To suppress these errors entirely, use `--no-owner`. The role performing the restore becomes the owner of all restored objects:
+
+```bash shouldWrap
+pg_restore -v -O -d postgresql://[user]:[password]@[neon_hostname]/pagila pagila_dump.bak
+```
+
+## Advanced options
+
+### pg_dump options
+
+| Flag | Description |
+|---|---|
+| `-Z <level>` | Compression level (0–9). `1` balances speed and size. |
+| `--lock-wait-timeout=20s` | Fail early if a table lock can't be acquired within the timeout instead of waiting indefinitely. |
+| `-j <njobs>` | Dump tables in parallel. Set to the number of available CPUs. |
+| `--no-blobs` | Exclude large objects (required since Neon doesn't support local file system access). |
+
+### pg_restore options
+
+| Flag | Description |
+|---|---|
+| `-c --if-exists` | Drop objects before recreating them. Useful when retrying a failed migration. |
+| `-j <njobs>` | Restore in parallel. Set to the number of available CPU cores. |
+| `--single-transaction` | Wrap the entire restore in a transaction. Prevents partial data if the restore fails. |
+| `--no-tablespaces` | Skip tablespace commands (required since Neon doesn't support custom tablespaces). |
+| `-t <table_name>` | Restore a single table from a custom-format dump. |
+
+## Neon limitations
+
+- `pg_dumpall` is not supported.
+- `pg_dump -C` (the `--create` flag) is not supported.
+- Tablespaces and large objects require local file system access, which Neon doesn't provide. Use `--no-tablespaces` with `pg_restore` and `--no-blobs` with `pg_dump`.
+
+## Run a test migration first
+
+Before migrating your production database, test the process against a copy of the data or a subset. Neon makes this easy — create a temporary database, run the restore, verify the result, then delete it. See [Create a database](/manage/projects).
+
+## Reference
+
+- [pg\_dump documentation](https://www.postgresql.org/docs/current/app-pgdump.html)
+- [pg\_restore documentation](https://www.postgresql.org/docs/current/app-pgrestore.html)
+- [psql documentation](https://www.postgresql.org/docs/current/app-psql.html)

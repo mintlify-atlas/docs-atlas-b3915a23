@@ -1,0 +1,261 @@
+---
+title: "neonctl databases: manage databases via CLI"
+description: "List, create, and delete Postgres databases in a Neon project from the terminal using the neonctl databases and neonctl roles commands."
+---
+
+The `neonctl databases` command lets you manage Postgres databases within a Neon project's branches from the terminal. Each branch can contain one or more databases, each owned by a Postgres role. You can list databases on a branch, create new ones, and delete existing ones.
+
+Roles and databases are closely related in Neon — a database must be owned by a role, and roles grant the credentials used to connect. The `neonctl roles` command is covered at the end of this page.
+
+<Note>
+  Before running `databases` or `roles` commands, [install the Neon CLI](/reference/neon-cli) and authenticate using `neon auth` or by setting a `NEON_API_KEY` environment variable. Most subcommands require `--project-id` only when your account has more than one project.
+</Note>
+
+## neonctl databases
+
+### Usage
+
+```bash
+neon databases <subcommand> [options]
+```
+
+| Subcommand | Description |
+|---|---|
+| [`list`](#list) | List databases |
+| [`create`](#create) | Create a database |
+| [`delete`](#delete) | Delete a database |
+
+### list
+
+Lists all databases on a branch. If no branch is specified, databases on the project's default branch are listed.
+
+#### Usage
+
+```bash
+neon databases list [options]
+```
+
+#### Options
+
+| Option | Description | Type |
+|---|---|---|
+| `--branch` | Branch ID or name. Defaults to the project's default branch | string |
+| `--project-id` | Project ID | string |
+| `--context-file` | Context file path and file name | string |
+
+Along with these options, all [global options](/reference/neon-cli#global-options) are supported.
+
+#### Example
+
+```bash
+neon databases list --branch br-autumn-dust-190886
+┌────────┬────────────┬──────────────────────┐
+│ Name   │ Owner Name │ Created At           │
+├────────┼────────────┼──────────────────────┤
+│ neondb │ daniel     │ 2023-06-19T18:27:19Z │
+└────────┴────────────┴──────────────────────┘
+```
+
+### create
+
+Creates a new database on a branch. If no branch is specified, the database is created on the project's default branch. If no owner is specified, the current user becomes the owner.
+
+#### Usage
+
+```bash
+neon databases create [options]
+```
+
+#### Options
+
+| Option | Description | Type | Required |
+|---|---|---|:---:|
+| `--name` | Name of the new database | string | yes |
+| `--owner-name` | Role that will own the database. Defaults to the current user | string | |
+| `--branch` | Branch ID or name. Defaults to the project's default branch | string | |
+| `--project-id` | Project ID | string | |
+| `--context-file` | Context file path and file name | string | |
+
+Along with these options, all [global options](/reference/neon-cli#global-options) are supported.
+
+#### Example
+
+```bash
+neon databases create --name mynewdb --owner-name john
+┌─────────┬────────────┬──────────────────────┐
+│ Name    │ Owner Name │ Created At           │
+├─────────┼────────────┼──────────────────────┤
+│ mynewdb │ john       │ 2023-06-19T23:45:45Z │
+└─────────┴────────────┴──────────────────────┘
+```
+
+### delete
+
+Deletes a database from a branch. If no branch is specified, the command assumes the database is on the project's default branch.
+
+#### Usage
+
+```bash
+neon databases delete <database> [options]
+```
+
+`<database>` is the database name.
+
+#### Options
+
+| Option | Description | Type |
+|---|---|---|
+| `--branch` | Branch ID or name. Defaults to the project's default branch | string |
+| `--project-id` | Project ID | string |
+| `--context-file` | Context file path and file name | string |
+
+Along with these options, all [global options](/reference/neon-cli#global-options) are supported.
+
+#### Example
+
+```bash
+neon databases delete mydb
+┌─────────┬────────────┬──────────────────────┐
+│ Name    │ Owner Name │ Created At           │
+├─────────┼────────────┼──────────────────────┤
+│ mydb    │ daniel     │ 2023-06-19T23:45:45Z │
+└─────────┴────────────┴──────────────────────┘
+```
+
+<Warning>
+  Database deletion is permanent and cannot be undone. Make sure you no longer need the database before deleting it.
+</Warning>
+
+---
+
+## neonctl roles
+
+Roles in Neon are Postgres roles that own databases and provide the credentials used to connect. The `neonctl roles` command manages roles at the branch level, alongside the databases they own.
+
+### Usage
+
+```bash
+neon roles <subcommand> [options]
+```
+
+| Subcommand | Description |
+|---|---|
+| [`list`](#list-roles) | List roles |
+| [`create`](#create-role) | Create a role |
+| [`delete`](#delete-role) | Delete a role |
+
+### list roles
+
+Lists all roles on a branch. If no branch is specified, roles on the project's default branch are listed.
+
+#### Usage
+
+```bash
+neon roles list [options]
+```
+
+#### Options
+
+| Option | Description | Type |
+|---|---|---|
+| `--branch` | Branch ID or name. Defaults to the project's default branch | string |
+| `--project-id` | Project ID | string |
+| `--context-file` | Context file path and file name | string |
+
+Along with these options, all [global options](/reference/neon-cli#global-options) are supported.
+
+#### Examples
+
+```bash
+neon roles list
+┌────────┬──────────────────────┐
+│ Name   │ Created At           │
+├────────┼──────────────────────┤
+│ daniel │ 2023-06-19T18:27:19Z │
+└────────┴──────────────────────┘
+```
+
+Use `--output json` to see all fields including the branch ID and whether the role is protected:
+
+```bash
+neon roles list --output json
+[
+  {
+    "branch_id": "br-odd-frog-703504",
+    "name": "daniel",
+    "protected": false,
+    "created_at": "2023-06-28T10:17:28Z",
+    "updated_at": "2023-06-28T10:17:28Z"
+  }
+]
+```
+
+### create role
+
+Creates a new Postgres role on a branch. Role names cannot exceed 63 bytes in length. If no branch is specified, the role is created on the project's default branch.
+
+#### Usage
+
+```bash
+neon roles create [options]
+```
+
+#### Options
+
+| Option | Description | Type | Required |
+|---|---|---|:---:|
+| `--name` | Role name. Max 63 bytes | string | yes |
+| `--no-login` | Create a passwordless role that cannot log in | boolean | |
+| `--branch` | Branch ID or name. Defaults to the project's default branch | string | |
+| `--project-id` | Project ID | string | |
+| `--context-file` | Context file path and file name | string | |
+
+Along with these options, all [global options](/reference/neon-cli#global-options) are supported.
+
+#### Example
+
+```bash
+neon roles create --name sally
+┌───────┬──────────────────────┐
+│ Name  │ Created At           │
+├───────┼──────────────────────┤
+│ sally │ 2023-06-20T00:43:17Z │
+└───────┴──────────────────────┘
+```
+
+### delete role
+
+Deletes a Postgres role from a branch. If no branch is specified, the command assumes the role resides on the project's default branch.
+
+#### Usage
+
+```bash
+neon roles delete <role> [options]
+```
+
+`<role>` is the role name.
+
+#### Options
+
+| Option | Description | Type |
+|---|---|---|
+| `--branch` | Branch ID or name. Defaults to the project's default branch | string |
+| `--project-id` | Project ID | string |
+| `--context-file` | Context file path and file name | string |
+
+Along with these options, all [global options](/reference/neon-cli#global-options) are supported.
+
+#### Example
+
+```bash
+neon roles delete sally
+┌───────┬──────────────────────┐
+│ Name  │ Created At           │
+├───────┼──────────────────────┤
+│ sally │ 2023-06-20T00:43:17Z │
+└───────┴──────────────────────┘
+```
+
+<Note>
+  You cannot delete a role that owns a database. Transfer or drop any databases owned by the role before deleting it. See [Manage roles](https://neon.tech/docs/manage/roles) for details.
+</Note>

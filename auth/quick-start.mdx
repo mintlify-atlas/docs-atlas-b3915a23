@@ -1,0 +1,172 @@
+---
+title: "Get started with Neon Auth"
+description: "Install the Neon TypeScript SDK, configure Neon Auth, and add email sign-up and sign-in to your app with real working code examples."
+keywords: ["neon auth", "quickstart", "sign up", "sign in", "sdk", "typescript", "better auth"]
+---
+
+This guide walks you through enabling Neon Auth on your project and wiring up email sign-up and sign-in using the Neon TypeScript SDK. By the end, you'll have a working auth flow and be able to access the authenticated user's ID in database queries.
+
+<Note>
+  Neon Auth is currently in beta and available on AWS regions only. It does not support projects with IP Allow or Private Networking enabled.
+</Note>
+
+## Prerequisites
+
+- A Neon account and project. Sign up at [console.neon.tech](https://console.neon.tech) if you don't have one.
+- Node.js 18 or later.
+
+<Steps>
+
+<Step title="Enable Neon Auth">
+
+In the [Neon Console](https://console.neon.tech), open your project and navigate to the **Auth** page in the sidebar. Click **Enable Neon Auth**.
+
+Once enabled, you'll see your **Auth URL** on the **Configuration** tab. Copy it; you'll need it in the next step.
+
+</Step>
+
+<Step title="Install the SDK">
+
+Install `@neondatabase/neon-js` in your project:
+
+```bash
+npm install @neondatabase/neon-js
+```
+
+</Step>
+
+<Step title="Configure environment variables">
+
+Add your Auth URL and (if you're also using the Data API) your Data API URL to your environment variables:
+
+```bash .env
+NEON_AUTH_URL=https://ep-example.neonauth.us-east-1.aws.neon.tech/neondb/auth
+NEON_DATA_API_URL=https://ep-example.apirest.us-east-1.aws.neon.tech/neondb/rest/v1
+```
+
+Both URLs are available on the **Auth** and **Data API** pages in the Neon Console.
+
+</Step>
+
+<Step title="Initialize the client">
+
+Create a single client instance to share across your app. Use `createClient` if you need both auth and database queries, or `createAuthClient` if you only need auth.
+
+<CodeGroup>
+
+```typescript auth.ts (auth + Data API)
+import { createClient } from '@neondatabase/neon-js';
+
+export const client = createClient({
+  auth: {
+    url: process.env.NEON_AUTH_URL!,
+  },
+  dataApi: {
+    url: process.env.NEON_DATA_API_URL!,
+  },
+});
+```
+
+```typescript auth.ts (auth only)
+import { createAuthClient } from '@neondatabase/neon-js/auth';
+
+export const auth = createAuthClient(process.env.NEON_AUTH_URL!);
+```
+
+</CodeGroup>
+
+</Step>
+
+<Step title="Add sign-up">
+
+Call `client.auth.signUp.email()` to create a new user. On success, the user record is stored in your database and a session is created automatically.
+
+```typescript
+const result = await client.auth.signUp.email({
+  email: 'user@example.com',
+  password: 'AbC123dEf',
+  name: 'Alex Lopez',
+});
+
+if (result.error) {
+  console.error('Sign-up failed:', result.error.message);
+} else {
+  console.log('User created:', result.data.user);
+}
+```
+
+<Tip>
+  By default, anyone can sign up. To add a verification step, enable email verification from the **Auth** page in the Neon Console.
+</Tip>
+
+</Step>
+
+<Step title="Add sign-in">
+
+Call `client.auth.signIn.email()` to authenticate an existing user. The session token is cached automatically and sent with subsequent requests.
+
+```typescript
+const result = await client.auth.signIn.email({
+  email: 'user@example.com',
+  password: 'AbC123dEf',
+});
+
+if (result.error) {
+  console.error('Sign-in failed:', result.error.message);
+} else {
+  console.log('Signed in as:', result.data.user.email);
+}
+```
+
+</Step>
+
+<Step title="Use the authenticated user in queries">
+
+After sign-in, the SDK attaches the user's JWT to every Data API request automatically. Your Row-Level Security policies can use `auth.user_id()` to filter rows by the current user.
+
+```typescript
+// JWT is included automatically - no extra configuration needed
+const { data, error } = await client
+  .from('posts')
+  .select('*')
+  .eq('is_published', true)
+  .order('created_at', { ascending: false });
+
+if (error) {
+  console.error(error);
+} else {
+  console.log(data);
+}
+```
+
+The `auth.user_id()` SQL function extracts the `sub` claim from the JWT, which you can use in RLS policies to restrict rows to the current user:
+
+```sql
+CREATE POLICY "Users can manage their own posts"
+ON posts FOR ALL TO authenticated
+USING (auth.user_id() = user_id)
+WITH CHECK (auth.user_id() = user_id);
+```
+
+</Step>
+
+</Steps>
+
+## Sign out
+
+To end the current session:
+
+```typescript
+await client.auth.signOut();
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Data API overview" icon="database" href="/data-api/overview">
+    Learn how the Data API works and how authentication integrates with it.
+  </Card>
+  <Card title="Access control" icon="lock" href="/data-api/access-control">
+    Configure RLS policies to control which rows each user can access.
+  </Card>
+</CardGroup>

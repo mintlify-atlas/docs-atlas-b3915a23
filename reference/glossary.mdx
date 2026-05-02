@@ -1,0 +1,186 @@
+---
+title: "Neon glossary: key terms and concepts"
+description: "Definitions for the core terms and concepts you'll encounter when working with Neon, from projects and branches to compute units and WAL."
+---
+
+This glossary defines the terms and concepts used throughout Neon's documentation, console, and APIs. Terms appear in alphabetical order. Where a term has an alternate name or abbreviation, both are listed.
+
+---
+
+**Access token** — See [Token](#token).
+
+**Active hours** — The amount of time a compute is actively running, as opposed to idle or suspended. Active hours are the basis for calculating [compute hours](#compute-hours). Time spent suspended due to inactivity is not counted.
+
+**Activity Monitor** — A process that watches a Neon compute for activity. During inactivity, the Activity Monitor gracefully suspends the compute to save resources. It also reactivates the compute when a new connection arrives. Idle connections are closed after 5 minutes of inactivity.
+
+**Admin** — An [organization](#organization) role with full access to all projects, permissions, invitations, and billing. Admins can manage members, assign roles, set permissions, and delete the organization.
+
+**API key** — A unique credential used to authenticate requests to the [Neon API](#neon-api). API keys are created in the Neon Console and associated with a specific Neon user account. See [Manage API keys](/reference/api-reference).
+
+**Archive storage** — Cost-efficient storage where Neon automatically archives inactive branches. In AWS regions, inactive branches are archived to Amazon S3; in Azure regions, to Azure Blob storage. Archived branches are billed at the same rate as active branches.
+
+**Autoscaling** — A Neon feature that automatically adjusts compute size between a defined minimum and maximum based on demand, optimizing for both performance and cost. See [Autoscaling](/features/autoscaling).
+
+**Autoscaler-agent** — The control mechanism in Neon's autoscaling system. It collects VM metrics, makes scaling decisions, and issues requests to resize the compute.
+
+**Availability Checker** — A periodic process run by the Control Plane to verify that a compute can start and that data can be read and written. The check queries a system database and never touches user data.
+
+---
+
+**Backup branch** — A branch automatically created by an [instant restore](#instant-restore) operation. When you restore a branch to a point in time, the current state is saved as a backup branch before the restore is applied.
+
+**Backpressure** — A mechanism that manages lag between the Pageserver and the compute node or WAL service. If the WAL service runs far ahead of the Pageserver, backpressure applies throttling to prevent timeout errors.
+
+**Branch** — An isolated copy of your data, analogous to a Git branch. A branch includes all databases, schemas, tables, records, indexes, and roles that existed on the source branch at the time of creation. Branches enable parallel development, testing, preview environments, and point-in-time access without affecting production data. Every Neon project is created with a root branch.
+
+**Branch archiving** — The automatic archiving of inactive branches to cost-efficient storage after a defined inactivity threshold. See [Branch archiving](/manage/branches).
+
+**Branching** — The Neon feature that lets you create isolated copies of your data. See [Branch](#branch).
+
+---
+
+**Child branch** — A branch created from another branch (the parent). Child branch storage is billed on the minimum of accumulated changes since creation or the logical data size.
+
+**CIDR notation** — A compact format for specifying IP address ranges (for example, `203.0.113.0/24`). Used in Neon's IP Allow feature to define which addresses can access a project's databases.
+
+**Collaborator** — A role that provides limited access to specific projects shared with a user. Collaborators see shared projects under "Shared with you" in the Neon Console but do not have access to the organization dashboard.
+
+**Compute** — A virtual machine that runs Postgres. Neon creates a primary read-write compute for each project's default branch. Each compute has a defined amount of CPU, RAM, and local SSD, measured in [Compute Units (CU)](#compute-unit-cu).
+
+**Compute endpoint** — The network access point for connecting to a Neon compute. Represented as a hostname such as `ep-aged-math-668285.us-east-2.aws.neon.tech`. Also carries metadata including `project_id`, `region_id`, `branch_id`, and endpoint type.
+
+**Compute hours** — A usage metric equal to `compute size (CU) × active hours`. For example, a 0.25 CU compute running for 4 active hours consumes 1 compute hour.
+
+**Compute Unit (CU)** — The unit used to measure Neon compute size. Each CU allocates approximately 4 GB of RAM plus associated CPU and local SSD. Neon computes range from 0.25 CU to 56 CU.
+
+**Connection pooling** — A technique that maintains a pool of reusable database connections to reduce connection overhead. Neon uses PgBouncer in transaction mode and supports up to 10,000 concurrent connections via a pooled connection string. See [Connection pooling](/connect/connection-pooling).
+
+**Connection string** — A URI containing the credentials and endpoint needed to connect to a Neon database, for example: `postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require&channel_binding=require`. Obtain connection strings from the **Connect** button on your Project Dashboard.
+
+**Context file** — A JSON file (`.neon` by default) used by the Neon CLI to store project and organization context, so you don't have to pass `--project-id` or `--org-id` with every command.
+
+**Control Plane** — The part of the Neon architecture responsible for managing cloud storage and compute resources.
+
+**Copy-on-write** — The technique Neon uses when creating branches. Data is initially shared between parent and child; a physical copy is made only when a write occurs on the child branch.
+
+---
+
+**Data transfer** — A usage metric that measures the total volume of data sent out of Neon (egress) during a billing period, including data transferred via logical replication. Free plan projects are limited to 5 GB/month.
+
+**Database** — A named collection of objects (tables, schemas, views, functions, etc.) within Neon. Every new Neon project includes a default database named `neondb` in the `public` schema. A project can contain multiple databases.
+
+**Default branch** — The branch designated as the project default. Each project is created with a root branch that carries the default designation (named `production` in the Console, `main` via API or CLI). The default branch cannot be deleted.
+
+---
+
+**Egress** — Data transferred out of the Neon service to an external destination. See [Data transfer](#data-transfer).
+
+**Endpoint ID** — A unique string identifying a Neon compute endpoint, always prefixed with `ep` (for example, `ep-calm-flower-a5b75h79`).
+
+---
+
+**GB-month** — A billing unit representing 1 GB of data stored for one complete calendar month. Storing 10 GB for half a month equals 5 GB-months. Usage resets at the start of each billing period.
+
+---
+
+**History** — The record of all data changes across all branches in a project, retained as Postgres WAL records. History enables instant restore, Time Travel queries, and other recovery features. How far back history is retained is controlled by the [restore window](#restore-window).
+
+---
+
+**Instant restore** — Point-in-time recovery with near-zero delay. Neon uses stored WAL history to restore a branch to any state within the configured restore window. See [Instant restore](/features/instant-restore).
+
+**IP Allow** — A Neon security feature that restricts database access to a specified list of IP addresses or CIDR ranges. Available on the Scale plan.
+
+---
+
+**Local File Cache (LFC)** — An in-memory caching layer that stores frequently accessed data from Neon storage on the compute node. The LFC extends the standard `shared_buffers` cache up to 75% of the compute's total RAM, reducing latency and improving query performance.
+
+**Logical data size** — The actual size of all data in a Postgres database (tables, indexes, views, procedures). For a branch, logical data size is the sum of all databases on that branch.
+
+**Logical replication** — A replication method that propagates transactional changes (`INSERT`, `UPDATE`, `DELETE`) rather than copying the full database. Enables selective replication of specific tables or rows. See [Logical replication](/import/overview).
+
+**LSN (Log Sequence Number)** — A byte offset that identifies a specific position in the WAL stream. Neon's branching feature supports creating branches at a specified LSN.
+
+---
+
+**Member** — An [organization](#organization) role with access to all projects within the organization. Members cannot manage billing, members, or permissions and must be invited by an Admin.
+
+**Monitoring Dashboard** — The section of the Neon Console that displays real-time graphs for system and database metrics such as RAM, CPU, connections, and database size. Metrics retention varies by plan (1 day on Free, 3 days on Launch, 14 days on Scale).
+
+---
+
+**Neon API** — The RESTful API for Neon. Every action available in the Neon Console can also be performed via the API. See the [API reference](https://api-docs.neon.tech/reference/getting-started-with-neon-api).
+
+**Neon Console** — The browser-based interface for managing Neon projects, branches, databases, roles, and billing.
+
+**neon_superuser** — The Neon-managed role that replaces the standard Postgres `superuser`. Roles created via the Console, CLI, or API are granted membership in `neon_superuser`.
+
+**Neon Proxy** — A Neon platform component that sits between connecting clients and Postgres compute nodes. Handles connection routing, authentication, and metrics collection.
+
+**NeonVM** — A QEMU-based tool that creates and manages virtual machines inside a Kubernetes cluster, enabling Neon to allocate and deallocate compute resources dynamically.
+
+---
+
+**Organization** — A Neon feature that groups multiple users under a shared account for collaborative project management, centralized billing, and role-based access. Free plan accounts include one organization; additional organizations are available on paid plans.
+
+---
+
+**Page** — The smallest unit of data in Postgres (8 KB). Postgres stores all relations and indexes in pages. In Neon, a page is also the smallest unit stored on the Pageserver.
+
+**Pageserver** — A Neon storage component that reads WAL records from Safekeepers to identify modified pages. The Pageserver accumulates and indexes WAL records, stores them in immutable files, and uploads them to cloud object storage. It can reconstruct any page version within the configured restore window.
+
+**Pooled connection string** — A connection string that routes through Neon's connection pooler (PgBouncer). Identified by the `-pooler` suffix on the hostname. Recommended for serverless and edge functions. Supports up to 10,000 concurrent connections.
+
+**Primary branch** — The read-write branch that serves as a project's main data source. Created automatically with every new Neon project. Each project has exactly one primary read-write compute, though multiple read replicas can be added.
+
+**Project** — The top-level container in Neon, analogous to a Git repository. A project holds branches, databases, roles, computes, and all associated settings. The region for a project is fixed at creation time.
+
+**Project ID** — A unique, human-readable string identifying a Neon project (for example, `cool-forest-86753099`). Visible in the Console URL and on the Settings page.
+
+**Protected branch** — A branch designated to prevent accidental modification or deletion. Protected branches cannot be deleted or reset, and their associated computes cannot be deleted. Available on paid plans.
+
+---
+
+**Read replica** — A read-only compute that connects to the same underlying storage as the primary read-write compute. Read replicas offload read queries and analytical workloads without affecting the primary compute. Multiple read replicas can be added to a branch.
+
+**Region** — The geographic location where a Neon project's data and compute resources reside. A project's region is selected at creation and cannot be changed. To move data to another region, create a new project in that region and migrate.
+
+**Restore window** — The period of time for which Neon retains WAL history for a project. Determines how far back you can restore data or run Time Travel queries. Configurable per project; longer windows increase instant restore storage costs.
+
+**Root branch** — The initial branch created with a Neon project. It has no parent and cannot be deleted. Named `production` in the Console or `main` via the API and CLI. Each project has exactly one permanent root branch.
+
+---
+
+**Safekeeper** — A Neon architecture component responsible for WAL durability. Postgres streams WAL records to multiple Safekeepers. A Paxos-based quorum algorithm ensures data is recoverable even if a node is lost. Safekeepers are deployed across multiple availability zones.
+
+**Scale to Zero** — A Neon feature that automatically suspends a compute after a configurable period of inactivity to reduce compute usage and cost. When a new connection arrives, the compute restarts within a few seconds. Can be disabled on paid plans.
+
+**Schema Diff** — A Neon feature that compares database schemas between branches, useful for code review and debugging schema changes.
+
+**Schema-only branch** — A branch that contains only the database schema from the source, with no data. Used when working with sensitive data to create isolated environments that can be populated with synthetic data.
+
+**Snapshot** — A read-only, point-in-time copy of a root branch's full state (schema and all data). Created instantly with minimal performance impact. Snapshots are free during the Beta period; storage will be billed at $0.09/GB-month starting May 1, 2026.
+
+**SQL Editor** — A browser-based query tool built into the Neon Console. Supports running queries, saving queries, viewing query history, and explaining query plans.
+
+**Storage** — A usage metric measuring the total volume of data and history stored in Neon. Root branches are billed on logical data size; child branches are billed on the minimum of accumulated changes or logical data size.
+
+---
+
+**Time Travel** — A Neon feature that lets you connect to and query your database at any point within the restore window. See [Time Travel](/features/instant-restore).
+
+**Token** — An encrypted credential used to authenticate with the Neon API. Generated when you create an API key. Also called an access token.
+
+---
+
+**Unlogged table** — A Postgres table type that does not write to the WAL. In Neon, unlogged table data is stored on compute-local storage and is lost when the compute restarts or scales to zero.
+
+---
+
+**WAL (Write-Ahead Log)** — The Postgres mechanism that ensures data durability by recording all changes before they are applied. Neon uses WAL to separate storage and compute and to support branching, instant restore, and logical replication.
+
+**WAL stream** — The continuous flow of WAL data produced during transactional processing.
+
+**Working set** — The subset of data and indexes that are accessed frequently enough to benefit from being cached in memory. Sizing your compute to fit your working set in the Local File Cache significantly improves query performance.
+
+**Written data** — A usage metric that measures the total volume of data written from compute to storage within a billing period, in GB.

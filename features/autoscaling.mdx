@@ -1,0 +1,70 @@
+---
+title: "Autoscaling: dynamic compute for Postgres"
+description: "Neon automatically scales compute up or down based on real-time load. Set a min and max CU range and let Neon handle resource allocation without restarts."
+---
+
+Neon's autoscaling feature dynamically adjusts the compute resources allocated to your Postgres database in response to actual load. When traffic increases, compute scales up. During quiet periods, it scales back down. No manual intervention or restarts are required.
+
+## How autoscaling works
+
+Neon continuously monitors your compute's resource usage. When demand rises above what the current allocation can handle, Neon increases CPU and memory within your configured range. When demand drops, it scales back down to conserve resources and reduce costs.
+
+The visualization below shows compute usage scaling up during peak hours and down during off-peak times:
+
+Autoscaling applies to both primary read-write computes and [read replicas](/features/read-replicas).
+
+## Compute units (CU)
+
+Neon measures compute in **Compute Units (CU)**. Each CU provides a fixed amount of CPU and RAM:
+
+| CU  | CPU    | RAM   |
+|-----|--------|-------|
+| 0.25 | 0.25 vCPU | 1 GB |
+| 0.5 | 0.5 vCPU | 2 GB |
+| 1   | 1 vCPU | 4 GB  |
+| 2   | 2 vCPU | 8 GB  |
+| 4   | 4 vCPU | 16 GB |
+| 8   | 8 vCPU | 32 GB |
+
+You configure autoscaling by setting a **minimum** and **maximum** CU value. Your compute will never drop below the minimum or exceed the maximum.
+
+<Note>
+The maximum permitted autoscaling range is 8 CU. The difference between your maximum and minimum compute size cannot exceed 8 CU.
+</Note>
+
+## Benefits
+
+- **On-demand scaling**: handles workloads with variable or unpredictable traffic patterns without over-provisioning.
+- **Cost efficiency**: you pay for the compute you actually use, not a fixed size provisioned for peak load.
+- **Resource control**: the min/max range ensures costs stay predictable and compute doesn't grow indefinitely.
+- **No restarts**: scaling happens transparently without interrupting your database connections.
+
+## Configuring autoscaling
+
+<Steps>
+  <Step title="Open compute settings">
+    In the [Neon Console](https://console.neon.tech), navigate to your project, then select **Computes** (or open the branch and click **Edit compute**).
+  </Step>
+  <Step title="Set the autoscaling range">
+    In the **Edit compute** drawer, find the autoscaling slider. Set your desired **minimum** and **maximum** CU values.
+
+    For example, setting a minimum of 2 CU (8 GB RAM) and a maximum of 8 CU (32 GB RAM) lets your compute respond to traffic spikes while staying within a known cost range.
+  </Step>
+  <Step title="Save changes">
+    Click **Save**. Autoscaling takes effect immediately — no restart required.
+  </Step>
+</Steps>
+
+<Tip>
+Monitor your compute usage from the **Monitoring Dashboard** in the Neon Console to determine whether your configured range is appropriate for your workload. If your compute is consistently hitting the maximum, consider raising the ceiling.
+</Tip>
+
+## What triggers scaling?
+
+Neon's autoscaling algorithm tracks real-time CPU and memory pressure on your compute. As queries arrive and load increases, the algorithm scales up to meet demand. For a deep dive into the scaling algorithm, see [Understanding Neon's autoscaling algorithm](/features/autoscaling).
+
+## Related features
+
+Autoscaling works alongside [scale to zero](/features/scale-to-zero). When your compute is idle for 5 minutes, it can scale all the way to zero. When a new query arrives, it scales back up — starting from your configured minimum CU.
+
+For full configuration details, see [Enabling autoscaling](/features/autoscaling).

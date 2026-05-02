@@ -1,0 +1,296 @@
+---
+title: "Store and query vector embeddings with pgvector"
+description: "Enable pgvector in Neon, create vector columns, insert embeddings, and run cosine, L2, and inner product similarity searches with HNSW and IVFFlat indexes."
+---
+
+Neon supports the `pgvector` Postgres extension, which adds a native `vector` data type, distance-function operators, and approximate nearest-neighbor indexes to your database. You can store vector embeddings alongside your relational data and query them with standard SQL — no separate vector database required.
+
+## Enable pgvector
+
+Run this statement from the [Neon SQL Editor](https://neon.tech/docs/get-started/query-with-neon-sql-editor) or any connected SQL client:
+
+```sql
+CREATE EXTENSION vector;
+```
+
+To pin a specific version, append the version number. For example, if you need the version prior to the current latest:
+
+```sql
+CREATE EXTENSION vector VERSION '0.7.4';
+```
+
+<Note>
+  To check the latest supported `pgvector` version on Neon, see the [Postgres extensions page](https://neon.tech/docs/extensions/pg-extensions). You can install one version behind the current latest.
+</Note>
+
+## Create a table with a vector column
+
+Embeddings are stored in columns with the `vector(n)` type, where `n` is the number of dimensions your embedding model produces. OpenAI's `text-embedding-3-small` model outputs 1,536 dimensions by default.
+
+```sql
+CREATE TABLE items (
+  id BIGSERIAL PRIMARY KEY,
+  content TEXT,
+  embedding VECTOR(1536)
+);
+```
+
+Adjust the dimension count to match your embedding model. Using more dimensions generally improves accuracy but increases storage and memory usage.
+
+## Insert embeddings
+
+After generating embeddings with an API such as OpenAI's Embeddings API, insert them as array literals:
+
+```sql
+INSERT INTO items (content, embedding)
+VALUES (
+  'The cow jumped over the moon.',
+  '[-0.006929, -0.005336, ..., -0.024048]'
+);
+```
+
+You can also insert multiple rows at once:
+
+```sql
+INSERT INTO items (content, embedding) VALUES
+  ('First document text.',  '[1,2,3, ...]'),
+  ('Second document text.', '[4,5,6, ...]');
+```
+
+For bulk loading, use the `COPY` command:
+
+```sql
+COPY items (content, embedding) FROM STDIN WITH (FORMAT BINARY);
+```
+
+To update an existing embedding:
+
+```sql
+UPDATE items SET embedding = '[1,2,3, ...]' WHERE id = 1;
+```
+
+## Query for similar vectors
+
+`pgvector` adds three distance operators. Choose the one that matches both your embedding model and the index type you create.
+
+| Operator | Metric           | Use case                                       |
+| -------- | ---------------- | ---------------------------------------------- |
+| `<->`    | L2 distance      | General purpose; default for most models       |
+| `<=>`    | Cosine distance  | Text embeddings; direction matters, not length |
+| `<#>`    | Inner product    | Embeddings normalized to unit length           |
+| `<+>`    | L1 distance      | Sparse or high-dimensional vectors             |
+
+### L2 (Euclidean) similarity search
+
+```sql
+SELECT id, content
+FROM items
+ORDER BY embedding <-> '[0.0117, ..., 0.0087]'
+LIMIT 5;
+```
+
+### Cosine similarity search
+
+```sql
+-- Cosine distance (lower = more similar)
+SELECT id, content, 1 - (embedding <=> '[0.0117, ..., 0.0087]') AS similarity
+FROM items
+ORDER BY embedding <=> '[0.0117, ..., 0.0087]'
+LIMIT 5;
+```
+
+### Inner product search
+
+```sql
+-- <#> returns negative inner product; multiply by -1 for a positive score
+SELECT id, content, (embedding <#> '[0.0117, ..., 0.0087]') * -1 AS score
+FROM items
+ORDER BY embedding <#> '[0.0117, ..., 0.0087]'
+LIMIT 5;
+```
+
+### Filter before searching
+
+You can combine a `WHERE` clause with a nearest-neighbor search. Add a regular B-tree index on the filter column to avoid a full table scan:
+
+```sql
+-- Add a supporting index on the filter column
+CREATE INDEX ON items (category_id);
+
+-- Filtered vector search
+SELECT id, content
+FROM items
+WHERE category_id = 42
+ORDER BY embedding <-> '[0.0117, ..., 0.0087]'
+LIMIT 5;
+```
+
+## Index your embeddings
+
+Without an index, `pgvector` performs a sequential scan and calculates the exact distance from the query vector to every row. This guarantees 100% recall but becomes expensive at 50,000 rows or more. Adding an approximate nearest-neighbor (ANN) index trades a small amount of recall for significantly faster queries.
+
+Two index types are available:
+
+- **HNSW** — graph-based; better query performance; slower to build and uses more memory.
+- **IVFFlat** — cluster-based; faster to build and uses less memory; lower query performance.
+
+<Note>
+  An HNSW index can be created on an empty table. An IVFFlat index requires existing data because it needs to compute cluster centroids during the training step.
+</Note>
+
+### HNSW index
+
+HNSW (Hierarchical Navigable Small World) constructs a multilayer graph and navigates it from the top layer down during search. It has better speed-recall tradeoffs than IVFFlat.
+
+Create an HNSW index for each distance function you use. The index operator class must match:
+
+<CodeGroup>
+
+```sql L2 distance
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
+```
+
+```sql Cosine distance
+CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
+```
+
+```sql Inner product
+CREATE INDEX ON items USING hnsw (embedding vector_ip_ops);
+```
+
+```sql L1 distance
+CREATE INDEX ON items USING hnsw (embedding vector_l1_ops);
+```
+
+</CodeGroup>
+
+#### Tune HNSW build parameters
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops)
+  WITH (m = 16, ef_construction = 64);
+```
+
+| Parameter        | Default | Effect                                                                               |
+| ---------------- | ------- | ------------------------------------------------------------------------------------ |
+| `m`              | 16      | Max connections per node. Higher values improve recall but increase index size and build time. Typical range: 12–48. |
+| `ef_construction`| 64      | Candidate list size during construction. Higher values improve recall at the cost of build time. Set to at least `2 × m`. |
+
+#### Tune HNSW search
+
+```sql
+-- Set for the current session
+SET hnsw.ef_search = 100;
+
+-- Set for a single query inside a transaction
+BEGIN;
+SET LOCAL hnsw.ef_search = 100;
+SELECT id, content FROM items ORDER BY embedding <-> '[...]' LIMIT 5;
+COMMIT;
+```
+
+`ef_search` (default 40) controls the candidate list size during search. Higher values improve recall at the cost of speed. It must be at least as large as the `LIMIT` value in your query.
+
+### IVFFlat index
+
+IVFFlat divides the dataset into lists (clusters) and searches only the lists closest to the query vector.
+
+```sql
+-- Good starting point: lists = rows / 1000 for tables up to 1M rows
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+```
+
+<Tip>
+  Create the IVFFlat index after loading your initial data. The cluster centroids are computed at index build time, so an empty table produces a poor-quality index.
+</Tip>
+
+#### Tune IVFFlat search
+
+```sql
+-- Set for the current session
+SET ivfflat.probes = 10;
+
+-- Force index use (optional, useful for benchmarking)
+SET enable_seqscan = off;
+
+-- Run the query
+SELECT id, content FROM items ORDER BY embedding <-> '[...]' LIMIT 5;
+```
+
+`probes` (default 1) sets how many lists are searched. A good starting point is `sqrt(lists)`. Higher values improve recall; lower values improve speed.
+
+### Choosing `lists` and `probes` for IVFFlat
+
+| Dataset size    | Recommended `lists`   | Starting `probes`  |
+| --------------- | --------------------- | ------------------ |
+| Up to 1M rows   | `rows / 1000`         | `sqrt(lists)`      |
+| Over 1M rows    | `sqrt(rows)`          | `sqrt(lists)`      |
+
+## Optimize index build time
+
+For large datasets, increase `maintenance_work_mem` and the number of parallel workers before building the index:
+
+```sql
+-- Increase memory for the current session (do not exceed ~50-60% of available RAM)
+SET maintenance_work_mem = '10 GB';
+
+-- Use more parallel workers (adjust to match your compute's CPU count)
+SET max_parallel_maintenance_workers = 7;
+
+-- Then create the index
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
+```
+
+<Note>
+  The recommended `maintenance_work_mem` is approximately the size of your vector data (your working set). It should not exceed 50–60% of your compute's available RAM. For reference, a 7 CU compute has 28 GB of RAM, so a 10 GB setting is safe.
+</Note>
+
+You can monitor indexing progress with:
+
+```sql
+SELECT phase, round(100.0 * blocks_done / nullif(blocks_total, 0), 1) AS "%"
+FROM pg_stat_progress_create_index;
+```
+
+## Additional vector types
+
+`pgvector` supports specialized types beyond the default `vector` type:
+
+### Half-precision vectors
+
+`halfvec` stores embeddings as 16-bit floats, cutting storage and memory usage nearly in half with minimal loss in accuracy. Supports up to 4,000 dimensions.
+
+```sql
+CREATE TABLE items (id BIGSERIAL PRIMARY KEY, embedding HALFVEC(1536));
+```
+
+### Binary vectors
+
+`bit` stores each dimension as a single bit. Supports up to 64,000 dimensions. Best for embeddings that benefit from Hamming or Jaccard distance.
+
+```sql
+CREATE TABLE items (id BIGSERIAL PRIMARY KEY, embedding BIT(1536));
+
+-- Search by Hamming distance
+SELECT * FROM items ORDER BY embedding <~> '101...' LIMIT 5;
+```
+
+### Sparse vectors
+
+`sparsevec` is efficient for high-dimensional vectors where most values are zero. Supports up to 1,000 non-zero elements.
+
+```sql
+CREATE TABLE items (id BIGSERIAL PRIMARY KEY, embedding SPARSEVEC(5));
+
+-- Insert sparse vector: {index:value,...}/dimensions
+INSERT INTO items (embedding) VALUES ('{1:1,3:2,5:3}/5');
+
+-- Search by L2 distance
+SELECT * FROM items ORDER BY embedding <-> '{1:3,3:1,5:2}/5' LIMIT 5;
+```
+
+## Resources
+
+- [pgvector on GitHub](https://github.com/pgvector/pgvector)
+- [Optimize vector search performance](https://neon.tech/docs/ai/ai-vector-search-optimization)
+- [Scale your AI application with Neon](https://neon.tech/docs/ai/ai-scale-with-neon)

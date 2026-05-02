@@ -1,0 +1,102 @@
+---
+title: "Available regions for Neon projects"
+description: "A complete list of AWS and Azure regions where you can deploy Neon projects, with guidance on selection, latency, and migrating data between regions."
+---
+
+Neon supports deploying projects across multiple AWS and Azure regions. Choosing a region that is geographically close to your application servers reduces round-trip latency and can improve query response times. This page lists all available regions, explains how to select one, and describes your options if you need to move data to a different region later.
+
+<Note>
+A project's region is fixed at creation time and cannot be changed. To run your database in a different region, you must create a new project there and migrate your data.
+</Note>
+
+## AWS regions
+
+| Region | Slug |
+|---|---|
+| US East (N. Virginia) | `aws-us-east-1` |
+| US East (Ohio) | `aws-us-east-2` |
+| US West (Oregon) | `aws-us-west-2` |
+| Europe (Frankfurt) | `aws-eu-central-1` |
+| Europe (London) | `aws-eu-west-2` |
+| Asia Pacific (Singapore) | `aws-ap-southeast-1` |
+| Asia Pacific (Sydney) | `aws-ap-southeast-2` |
+| South America (São Paulo) | `aws-sa-east-1` |
+
+## Azure regions
+
+Azure region support is currently undergoing changes. See the Neon Console for up-to-date availability when creating a project.
+
+## Selecting a region
+
+You choose the region when you create a Neon project. All branches and databases in that project are created in the same region.
+
+<Steps>
+  <Step title="Open project creation">
+    Go to the [Neon Console](https://console.neon.tech) and click **New project**.
+  </Step>
+  <Step title="Choose a region">
+    In the **Region** dropdown, select the region closest to your application server or end users.
+  </Step>
+  <Step title="Complete project setup">
+    Fill in any remaining settings (Postgres version, compute size) and click **Create project**. The region is set permanently at this point.
+  </Step>
+</Steps>
+
+<Tip>
+If you are deploying to a cloud provider like AWS, Vercel, or Render, match the Neon region to the region where your application is hosted. For example, if your API runs in `us-east-1`, use `aws-us-east-1` for your Neon project.
+</Tip>
+
+## Region considerations
+
+### Latency
+
+Database query latency increases with physical distance between the database and the application. A compute in the same AWS region as your application server will typically add only single-digit milliseconds of overhead. Cross-region connections can add 50–200 ms or more depending on geography.
+
+### Data residency
+
+Some organizations have legal or compliance requirements that restrict where data can be stored. Choose a region that satisfies your data residency obligations at project creation time. You cannot move data to another region without explicitly migrating it.
+
+### Region availability
+
+Not all Neon features are available in every region at the same time. Feature rollouts generally appear in AWS US East regions first. Check the Neon Changelog for region-specific announcements.
+
+## NAT Gateway IP addresses
+
+Each Neon region uses a set of fixed NAT Gateway IP addresses for outbound connections. If you are setting up inbound rules on a firewall or configuring replication to Neon from an external source, allow all IP addresses for your project's region.
+
+### AWS NAT Gateway IP addresses
+
+| Region | IP addresses |
+|---|---|
+| `aws-us-east-1` | 100.26.142.14, 100.51.56.234, 13.219.161.141, 18.211.255.174, 18.215.104.21, 23.23.0.232, 3.213.105.99, 3.222.32.110, 34.202.217.219, 34.224.137.41, 34.233.170.231, 34.235.208.71, 34.239.66.10, 35.168.244.148, 44.209.63.35, 44.212.197.226, 52.203.31.78, 52.70.189.141, 52.73.235.120, 54.156.66.192, 54.160.39.37, 54.173.116.247, 54.197.227.141, 54.205.208.153, 54.88.155.118, 98.88.203.121, 98.88.212.99 |
+| `aws-us-east-2` | 16.58.110.124, 16.58.110.255, 16.58.110.55, 18.116.233.216, 18.117.39.4, 18.217.181.229, 3.128.125.142, 3.128.6.252, 3.129.145.179, 3.139.195.115, 3.139.7.20, 3.16.227.37, 52.15.165.218 |
+| `aws-us-west-2` | 34.213.87.149, 35.164.221.218, 35.83.202.11, 44.235.241.217, 44.236.56.140, 52.32.22.241, 52.37.48.254, 52.40.99.9, 54.186.210.201, 54.213.57.47 |
+| `aws-eu-central-1` | 18.156.24.144, 18.158.63.175, 18.194.181.241, 18.198.137.195, 3.123.76.138, 3.125.234.79, 3.125.57.42, 3.66.63.165, 52.58.17.95 |
+| `aws-eu-west-2` | 18.133.205.39, 3.10.42.8, 52.56.191.86 |
+| `aws-ap-southeast-1` | 3.1.239.32, 47.131.90.115, 52.76.51.78, 54.254.50.26, 54.254.92.70, 54.255.161.23 |
+| `aws-ap-southeast-2` | 13.237.134.148, 13.55.152.144, 54.153.185.87 |
+| `aws-sa-east-1` | 18.230.1.215, 52.67.202.176, 54.232.117.41 |
+
+### Azure NAT Gateway IP addresses
+
+| Region | IP addresses |
+|---|---|
+| `azure-eastus2` | 48.211.218.176, 48.211.218.194, 48.211.218.200 |
+| `azure-gwc` | 20.52.100.129, 20.52.100.208, 20.52.187.150 |
+| `azure-westus3` | 20.38.38.171, 20.168.0.32, 20.168.0.77 |
+
+You can find your project's region in the **Settings** widget on the Project Dashboard.
+
+## Moving data to another region
+
+A project's region cannot be changed after creation. If you need your data in a different region, you must create a new project in the target region and migrate your database there.
+
+<Warning>
+You are not moving the existing project. You are creating a separate project in a new region and copying data into it. The original project continues to exist until you delete it.
+</Warning>
+
+See [Region migration](/import/overview) for step-by-step instructions, including prerequisites and the available migration paths.
+
+## Requesting a new region
+
+If you need a region that is not currently available, you can submit a request. Look for the region request form in the Neon Console, or reach out on the [Neon Discord](https://discord.gg/92vNTzKDGp).

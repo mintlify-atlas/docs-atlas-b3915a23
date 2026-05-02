@@ -1,0 +1,258 @@
+---
+title: "Manage database branches in Neon"
+description: "Create, configure, and delete Neon branches. Covers branch types, default branch, protected branches, expiration, and branching via the Console and CLI."
+keywords: ["neon branches", "create branch", "default branch", "protected branch", "branch expiration", "delete branch", "branch types"]
+---
+
+In Neon, all data lives in a branch. Each project starts with a root branch — named `production` in the Console or `main` via API/CLI — which serves as your project's default branch. You can create child branches from the root or from any other existing branch. Child branches are copy-on-write clones of their parent, so changes in a branch do not affect the parent.
+
+<Warning>
+Remove old and unused branches regularly. Branches hold a lock on the data they contain, which increases storage usage as they age beyond your project's restore window.
+</Warning>
+
+## Branch naming
+
+Branch names are optional. If you don't provide one, the branch uses its auto-generated ID (for example, `br-curly-wave-af4i4oeu`).
+
+Custom branch names must follow these rules:
+
+- Maximum 128 characters in the Console (256 via API)
+- Unique within the project
+- Cannot be empty or consist only of whitespace
+- Any characters are permitted
+
+## Branch types
+
+### Root branch
+
+A branch with no parent. Each project starts with one root branch that cannot be deleted. Projects can have multiple root branches, with limits based on plan:
+
+| Plan | Root branches per project |
+|------|--------------------------|
+| Free | 3 |
+| Launch | 5 |
+| Scale | 25 |
+
+### Default branch
+
+Each project has a default branch, identified in the Console by a `DEFAULT` tag. When you create a new branch without specifying a parent, it branches from the default. The [Neon-Managed Vercel integration](/connect/frameworks) also creates preview branches from the default.
+
+You can designate any branch as the default.
+
+### Protected branch
+
+Available on paid plans (up to five protected branches per project). Protected branches cannot be deleted or reset, their associated computes cannot be deleted, and the project itself cannot be deleted while a protected branch exists. New Postgres role passwords are generated automatically for branches created from a protected branch.
+
+### Schema-only branch
+
+Replicates only the database schema from a source, without copying any data. Useful for testing migrations or building test fixtures without exposing sensitive production data. Schema-only branches are root branches.
+
+### Branch with expiration
+
+Any branch can have an expiration timestamp. When the timestamp is reached, the branch is automatically deleted. Useful for CI/CD pipelines and short-lived environments.
+
+## Create a branch
+
+<Tabs>
+  <Tab title="Console">
+    <Steps>
+      <Step title="Open the branch dialog">
+        In the Neon Console, select a project. Go to **Branches** and click **New branch**.
+      </Step>
+      <Step title="Choose a parent">
+        Select a **Parent branch**. Your project's default branch is pre-selected.
+      </Step>
+      <Step title="Configure the branch">
+        Specify an optional name, then choose what to include:
+
+        - **Current data** — a copy of the parent's latest data and schema
+        - **Past data** — a copy from a specific point in time (within your restore window)
+        - **Schema only** — the database schema only, without data
+        - **Anonymized data** — data with sensitive fields masked
+      </Step>
+      <Step title="Set expiration (optional)">
+        By default, branches created in the Console are set to auto-delete after 1 day. You can change this to 1 hour, 7 days, or disable it entirely.
+      </Step>
+      <Step title="Create">
+        Click **Create**. You'll see connection details and be directed to the branch overview page.
+      </Step>
+    </Steps>
+
+    <Note>
+    New branches inherit the same Postgres roles and passwords as the parent. To generate new passwords on branch creation, enable [branch protection](/manage/branches).
+    </Note>
+  </Tab>
+  <Tab title="CLI">
+    ```bash
+    neon branches create --name my-feature-branch
+    ```
+
+    To branch from a specific parent:
+
+    ```bash
+    neon branches create --name my-feature-branch --parent production
+    ```
+
+    For full CLI reference, see [Neon CLI — branches](/reference/cli-branches).
+  </Tab>
+  <Tab title="API">
+    ```bash
+    curl 'https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches' \
+      -H 'Accept: application/json' \
+      -H "Authorization: Bearer $NEON_API_KEY" \
+      -H 'Content-Type: application/json' \
+      -d '{
+      "endpoints": [
+        {
+          "type": "read_write"
+        }
+      ],
+      "branch": {
+        "parent_id": "br-wispy-dew-591433"
+      }
+    }' | jq
+    ```
+
+    Omit the request body to create a branch from the project's default branch without a compute attached.
+  </Tab>
+</Tabs>
+
+## View branches
+
+To view all branches in a project:
+
+1. In the Neon Console, select a project.
+2. Select **Branches**.
+
+The table shows each branch's name, parent, compute hours, compute size and status, data size, who created it, and when it was last active.
+
+Click a branch to view its detail page, which includes the branch ID, creation date, compute details, and child branches.
+
+To check data size with SQL:
+
+```sql
+SELECT pg_size_pretty(sum(pg_database_size(datname)))
+FROM pg_database;
+```
+
+<Note>
+Paid plans support up to 16 TB of logical data per branch. When a branch reaches this limit, write performance drops, but you can reclaim space by dropping or deleting data.
+</Note>
+
+## Set a branch as default
+
+<Steps>
+  <Step title="Open the branch">
+    In the Neon Console, go to **Branches** and select the branch you want to make default.
+  </Step>
+  <Step title="Set as default">
+    Click the **More** menu and select **Set as default**.
+  </Step>
+  <Step title="Confirm">
+    Click **Set as default** in the confirmation dialog.
+  </Step>
+</Steps>
+
+## Set a branch as protected
+
+<Steps>
+  <Step title="Open the branch">
+    In the Neon Console, go to **Branches** and select the branch.
+  </Step>
+  <Step title="Set as protected">
+    Click the **More** menu and select **Set as protected**.
+  </Step>
+  <Step title="Confirm">
+    Click **Set as protected** in the confirmation dialog.
+  </Step>
+</Steps>
+
+For detailed configuration, see [Protected branches](/manage/branches).
+
+## Rename a branch
+
+1. In the Neon Console, go to **Branches** and select the branch.
+2. Click the **More** menu and select **Rename**.
+3. Enter a new name and click **Save**.
+
+You can rename any branch, including the default branch.
+
+## Set or update branch expiration
+
+1. In the Neon Console, go to **Branches** and select the branch.
+2. Click the **Actions** menu and select **Edit expiration**.
+3. Set a new date and time, or toggle off **Automatically delete branch after** to remove the expiration.
+4. Click **Save**.
+
+For more, see [Branch expiration](/manage/branches).
+
+## Connect to a branch
+
+Each branch has a compute with a unique hostname. To connect:
+
+1. In the Neon Console, click **Connect** on the **Project Dashboard**.
+2. Select the branch, database, and role.
+3. Copy the connection string and connect with `psql`:
+
+```bash shouldWrap
+psql postgresql://[user]:[password]@[neon_hostname]/[dbname]
+```
+
+<Tip>
+You can also query branch databases directly from the [Neon SQL Editor](/get-started/signing-up).
+</Tip>
+
+## Reset a branch from parent
+
+The **Reset from parent** feature updates a branch with the latest schema and data from its parent instantly. See [Reset from parent](/manage/branches) for details.
+
+## Restore a branch
+
+You can restore a branch to:
+
+- A specific point in its own history
+- The head of another branch
+- A point in another branch's history
+
+For full instructions, see [Instant restore](/features/instant-restore).
+
+## Delete a branch
+
+Deleting a branch is permanent and also deletes its databases, roles, and compute. You cannot delete a branch that has child branches — delete child branches first.
+
+<Steps>
+  <Step title="Open the branch">
+    In the Neon Console, go to **Branches** and select the branch.
+  </Step>
+  <Step title="Delete">
+    Click the **More** menu and select **Delete**.
+  </Step>
+  <Step title="Confirm">
+    Click **Delete** in the confirmation dialog.
+  </Step>
+</Steps>
+
+<Tip>
+For temporary branches, set an expiration date at creation time to automate cleanup instead of deleting manually.
+</Tip>
+
+To delete via the API:
+
+```bash
+curl -X DELETE \
+  'https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches/$BRANCH_ID' \
+  -H 'Accept: application/json' \
+  -H "Authorization: Bearer $NEON_API_KEY" | jq
+```
+
+## List branches with the API
+
+```bash
+curl 'https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches' \
+  -H 'Accept: application/json' \
+  -H "Authorization: Bearer $NEON_API_KEY" | jq
+```
+
+## Branch archiving
+
+On the Free plan, Neon automatically archives inactive branches to cost-efficient storage after a defined inactivity threshold. Protected branches are never archived. See [Branch archiving](/manage/branches) for details.

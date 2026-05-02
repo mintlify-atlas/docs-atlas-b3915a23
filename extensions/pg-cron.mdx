@@ -1,0 +1,209 @@
+---
+title: "pg_cron: schedule Postgres jobs in Neon"
+description: "Run scheduled SQL jobs inside Neon Postgres with pg_cron — no external cron needed. Covers API setup, cron syntax, scheduling examples, and job management."
+---
+
+The `pg_cron` extension is a cron-based job scheduler for Postgres. It runs entirely inside your database, which means you can schedule standard SQL statements, stored procedure calls, and maintenance commands without relying on an external cron utility or application-level scheduler.
+
+<Warning>
+`pg_cron` jobs only run when your compute is active. If your compute scales to zero, any job that is scheduled to run while the compute is idle will be skipped. Use `pg_cron` on computes that run 24/7 or where you have disabled [scale to zero](/features/scale-to-zero).
+</Warning>
+
+## Enable pg_cron
+
+`pg_cron` requires a preloaded shared library and must be bound to a specific database before you can install it. The setup process uses the Neon API.
+
+<Steps>
+  <Step title="Set the cron database via the API">
+    Make a `PATCH` request to the [Update compute endpoint](https://api-docs.neon.tech/reference/updateprojectendpoint) API, setting `cron.database_name` to the name of the database where you want to use `pg_cron`. Replace `<project_id>`, `<endpoint_id>`, and `your_dbname` with your actual values.
+
+    ```bash
+    curl --request PATCH \
+         --url https://console.neon.tech/api/v2/projects/<project_id>/endpoints/<endpoint_id> \
+         --header 'accept: application/json' \
+         --header 'authorization: Bearer $NEON_API_KEY' \
+         --header 'content-type: application/json' \
+         --data '{
+      "endpoint": {
+        "settings": {
+          "pg_settings": {
+            "cron.database_name": "your_dbname"
+          }
+        }
+      }
+    }'
+    ```
+
+    You can find your `project_id` on the **Settings** page of your project in the Neon Console. The `endpoint_id` is on the **Compute** tab of your **Branches** page — it starts with `ep-`.
+  </Step>
+  <Step title="Restart your compute">
+    After setting `cron.database_name`, restart the compute to apply the change. The restart will drop any active connections.
+
+    ```bash
+    curl --request POST \
+         --url https://console.neon.tech/api/v2/projects/<project_id>/endpoints/<endpoint_id>/restart \
+         --header 'accept: application/json' \
+         --header 'authorization: Bearer $NEON_API_KEY'
+    ```
+
+    <Note>
+    The restart API only works on an active compute. If your compute is idle, run a query first to wake it up, or use the [Start compute endpoint](https://api-docs.neon.tech/reference/startprojectendpoint) API.
+    </Note>
+  </Step>
+  <Step title="Install the extension">
+    Connect to the database you specified in step 1 and run:
+
+    ```sql
+    CREATE EXTENSION IF NOT EXISTS pg_cron;
+    ```
+  </Step>
+</Steps>
+
+## Cron schedule syntax
+
+`pg_cron` uses standard cron syntax with five fields:
+
+```
+ ┌───────────── minute (0 - 59)
+ │ ┌────────────── hour (0 - 23)
+ │ │ ┌─────────────── day of month (1 - 31)
+ │ │ │ ┌──────────────── month (1 - 12)
+ │ │ │ │ ┌───────────────── day of week (0 - 6, Sunday = 0 or 7)
+ │ │ │ │ │
+ * * * * *
+```
+
+Special characters:
+
+| Character | Meaning |
+| --------- | ------- |
+| `*` | All values in this field |
+| `,` | List of values, e.g. `1,3,5` |
+| `-` | Range of values, e.g. `10-12` |
+| `/` | Step values, e.g. `*/15` (every 15 minutes) |
+| `$` | Last day of the month |
+
+`pg_cron` also supports second-level intervals using an `'n seconds'` string instead of a cron expression. All schedules are interpreted in **UTC**.
+
+<Tip>
+Use [crontab.guru](https://crontab.guru/) to build and validate cron expressions. Remember that `pg_cron` runs in UTC, so adjust your schedule accordingly.
+</Tip>
+
+## Schedule a job
+
+Use `cron.schedule(name, schedule, command)` to register a job. The function returns a job ID.
+
+### Example: archive old orders weekly
+
+Move orders older than 90 days to an archive table every Sunday at 2:00 AM UTC:
+
+```sql
+SELECT cron.schedule(
+    'archive-old-orders',
+    '0 2 * * 0',
+    $$
+        WITH old_orders AS (
+            SELECT *
+            FROM orders
+            WHERE order_date < NOW() - INTERVAL '90 days'
+        )
+        INSERT INTO orders_archive SELECT * FROM old_orders;
+        DELETE FROM orders
+        WHERE order_id IN (SELECT order_id FROM old_orders);
+    $$
+);
+```
+
+- `'archive-old-orders'`: the job name, used to manage it later
+- `'0 2 * * 0'`: run at minute 0, hour 2, every Sunday
+- The `$$ ... $$` dollar-quoting encloses the multi-statement SQL command
+
+### Example: purge old job run logs daily
+
+The `cron.job_run_details` table grows over time. Schedule a cleanup job to delete entries older than 7 days:
+
+```sql
+SELECT cron.schedule(
+    'purge-cron-history',
+    '0 0 * * *',
+    $$
+        DELETE FROM cron.job_run_details
+        WHERE end_time < NOW() - INTERVAL '7 days';
+    $$
+);
+```
+
+### Example: run a job every N seconds
+
+`pg_cron` supports sub-minute scheduling using a seconds interval — something standard cron can't do. The interval must be between 1 and 59 seconds.
+
+```sql
+SELECT cron.schedule('every-10-seconds', '10 seconds', 'SELECT 1');
+```
+
+## View scheduled jobs
+
+Query `cron.job` to see all registered jobs, their schedules, and the commands they run:
+
+```sql
+SELECT * FROM cron.job;
+```
+
+## Unschedule jobs
+
+Remove a job by name or by ID.
+
+<CodeGroup>
+
+```sql By name
+SELECT cron.unschedule('archive-old-orders');
+```
+
+```sql By job ID
+SELECT cron.unschedule(26);
+```
+
+</CodeGroup>
+
+## View job run history
+
+The `cron.job_run_details` table records the result of each job execution, including start time, end time, status, and any return messages:
+
+```sql
+SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 5;
+```
+
+This is useful for verifying that jobs ran on schedule and for diagnosing failures.
+
+## Extension settings
+
+`pg_cron` configuration is managed by Neon and cannot be changed directly. To request a setting change, open a [support ticket](https://console.neon.tech/app/projects?modal=support). After Neon support applies the change, restart your compute for it to take effect.
+
+You can view current settings with:
+
+```sql
+SELECT * FROM pg_settings WHERE name LIKE 'cron.%';
+```
+
+Key settings:
+
+| Setting | Default | Description |
+| ------- | ------- | ----------- |
+| `cron.launch_active_jobs` | `on` | Set to `off` to disable all active jobs without a server restart. |
+| `cron.log_run` | `on` | When `on`, each job run is recorded in `cron.job_run_details`. |
+| `cron.log_statement` | `on` | When `on`, the SQL command of each job is logged before execution. |
+| `cron.max_running_jobs` | `32` | Maximum number of `pg_cron` jobs that can run concurrently. |
+| `cron.timezone` | `GMT` | Timezone for the background worker. Note: `pg_cron` always interprets schedules in UTC regardless of this setting. |
+| `cron.use_background_workers` | `off` | When `on`, jobs run as background workers instead of client connections. |
+
+## Common use cases
+
+- **Data cleanup**: Delete expired sessions, soft-deleted rows, or audit log entries on a schedule.
+- **Aggregation**: Roll up high-frequency data into hourly or daily summary tables.
+- **Archival**: Move old records to a separate archive table to keep primary tables performant.
+- **Log management**: Truncate or prune `cron.job_run_details` and other growing log tables.
+- **Refresh jobs**: Call `REFRESH MATERIALIZED VIEW` on a schedule to keep summaries up to date.
+
+<Note>
+`pg_cron` can only be installed in one database per Postgres cluster (each Neon compute is a single Postgres cluster). The `cron.schedule_in_database()` function for cross-database scheduling is not supported on Neon.
+</Note>

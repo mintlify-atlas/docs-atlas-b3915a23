@@ -1,0 +1,192 @@
+---
+title: "Neon REST API reference"
+description: "Manage Neon projects, branches, databases, roles, and compute endpoints programmatically using the Neon Management REST API with Bearer token auth."
+---
+
+The Neon API lets you manage every part of your Neon account programmatically. Anything you can do in the Neon Console — create projects, branch databases, configure compute endpoints, manage roles — you can do with an HTTP request. The interactive reference is at [api-docs.neon.tech](https://api-docs.neon.tech).
+
+## Base URL
+
+All requests go to the same base URL:
+
+```text
+https://console.neon.tech/api/v2/
+```
+
+## Authentication
+
+Every request must include your API key in the `Authorization` header using Bearer authentication:
+
+```bash
+curl https://console.neon.tech/api/v2/projects \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $NEON_API_KEY"
+```
+
+<Steps>
+  <Step title="Create an API key">
+    Go to **Account settings** > **API keys** in the [Neon Console](https://console.neon.tech) and click **Generate new API key**. Copy the token — it is shown only once.
+  </Step>
+
+  <Step title="Store it as an environment variable">
+    ```bash
+    export NEON_API_KEY="your-api-key-here"
+    ```
+  </Step>
+
+  <Step title="Make your first request">
+    ```bash
+    curl https://console.neon.tech/api/v2/projects \
+      -H "Accept: application/json" \
+      -H "Authorization: Bearer $NEON_API_KEY" | jq
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  API key tokens are shown only once at creation. Store them securely in a password manager or secrets vault — you cannot retrieve a token after closing the creation dialog.
+</Warning>
+
+## API key types
+
+Neon supports three key scopes to match different authorization needs:
+
+| Key type | Scope | Best for |
+|---|---|---|
+| **Personal API key** | All projects you own or have access to | Personal development, scripts |
+| **Organization API key** | All projects within an organization | Team automation, CI/CD |
+| **Project-scoped API key** | A single project only | Limited-access integrations |
+
+For detailed instructions on creating and revoking keys, see [Manage API keys](/reference/api-reference).
+
+## Key resource groups
+
+The API is organized around the core building blocks of a Neon account.
+
+### Projects
+
+A project is the top-level container. It holds branches, databases, roles, and compute endpoints.
+
+```bash
+# List all projects
+curl https://console.neon.tech/api/v2/projects \
+  -H "Authorization: Bearer $NEON_API_KEY"
+
+# Create a project
+curl -X POST https://console.neon.tech/api/v2/projects \
+  -H "Authorization: Bearer $NEON_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"project": {"name": "my-project", "region_id": "aws-us-east-2", "pg_version": 17}}'
+```
+
+### Branches
+
+Branches are instant, copy-on-write clones of your database. Use them for development, testing, and preview environments.
+
+```bash
+# Create a branch
+curl -X POST https://console.neon.tech/api/v2/projects/{project_id}/branches \
+  -H "Authorization: Bearer $NEON_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"branch": {"name": "dev-branch"}}'
+```
+
+### Databases
+
+Each branch can contain multiple databases. Databases are Postgres databases in the standard sense.
+
+```bash
+# List databases on a branch
+curl https://console.neon.tech/api/v2/projects/{project_id}/branches/{branch_id}/databases \
+  -H "Authorization: Bearer $NEON_API_KEY"
+```
+
+### Roles
+
+Roles map to Postgres roles. You can create, list, and reset passwords for roles on any branch.
+
+```bash
+# List roles on a branch
+curl https://console.neon.tech/api/v2/projects/{project_id}/branches/{branch_id}/roles \
+  -H "Authorization: Bearer $NEON_API_KEY"
+```
+
+### Operations
+
+Many API actions — creating branches, starting computes — are asynchronous. The response includes an `operations` array you can poll for completion.
+
+```bash
+# Check operation status
+curl https://console.neon.tech/api/v2/projects/{project_id}/operations/{operation_id} \
+  -H "Authorization: Bearer $NEON_API_KEY"
+```
+
+Operation status values: `scheduling`, `running`, `finished`, `failed`, `cancelling`, `cancelled`, `skipped`.
+
+## Example: list projects then create a branch
+
+```bash
+# 1. Get your project ID
+curl https://console.neon.tech/api/v2/projects \
+  -H "Authorization: Bearer $NEON_API_KEY" | jq '.projects[0].id'
+
+# 2. Create a branch in that project
+curl -X POST https://console.neon.tech/api/v2/projects/spring-example-302709/branches \
+  -H "Authorization: Bearer $NEON_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"branch": {"name": "dev-branch"}}'
+```
+
+The project list response looks like this:
+
+```json
+{
+  "projects": [
+    {
+      "id": "spring-example-302709",
+      "name": "my-project",
+      "region_id": "aws-us-east-2",
+      "pg_version": 17,
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+## Rate limits and pagination
+
+**Rate limiting** — The API allows 700 requests per minute (approximately 11 per second) with a burst limit of 40 requests per second per route. Exceeding these limits returns `HTTP 429 Too Many Requests`. Implement retry logic with exponential backoff.
+
+**Pagination** — Endpoints that return lists support cursor-based pagination via `limit` and `cursor` query parameters:
+
+```bash
+# First page
+curl "https://console.neon.tech/api/v2/projects?limit=10" \
+  -H "Authorization: Bearer $NEON_API_KEY"
+
+# Next page using cursor from previous response
+curl "https://console.neon.tech/api/v2/projects?limit=10&cursor=CURSOR_VALUE" \
+  -H "Authorization: Bearer $NEON_API_KEY"
+```
+
+## Important constraints
+
+Keep these in mind when building automation:
+
+- You cannot delete a project's root or default branch.
+- You cannot delete a branch that has child branches — delete all children first.
+- A branch can have only one `read_write` endpoint but multiple `read_only` endpoints.
+- Requests that conflict with an in-progress operation return `423 Locked`. Retry with exponential backoff or poll for operation completion first.
+- Creating a new role may drop existing connections to the active compute endpoint.
+
+## SDKs and tools
+
+If you'd rather not construct HTTP requests by hand, Neon provides official SDKs:
+
+- [TypeScript SDK](/reference/typescript-sdk) — `@neondatabase/api-client` for Node.js and browser environments
+- [Python SDK](/reference/python-sdk) — `neon-api` for Python applications
+- [Terraform provider](/reference/terraform) — Community-maintained provider for infrastructure as code
+
+## Full API specification
+
+The interactive [Neon API reference](https://api-docs.neon.tech) includes complete endpoint documentation, request and response schemas, and a "Try It" playground. You can also download the [OpenAPI 3.0 specification](https://neon.com/api_spec/release/v2.json) directly for code generation.

@@ -1,0 +1,159 @@
+---
+title: "Neon plans, pricing, and billing"
+description: "Compare Neon's Free, Launch, and Scale plans. Understand how compute, storage, and branches are billed, manage your plan, and control costs."
+keywords: ["neon plans", "neon pricing", "billing", "free plan", "launch plan", "scale plan", "compute units", "storage billing", "change plan"]
+---
+
+Neon offers three plans to support you at every stage: a free tier for getting started, and two usage-based paid plans. On paid plans, you pay only for what you use — there's no minimum monthly fee.
+
+## Plan overview
+
+| Feature | Free | Launch | Scale |
+|---------|------|--------|-------|
+| **Price** | $0/month | Pay for usage | Pay for usage |
+| **Best for** | Prototypes and side projects | Startups and growing teams | Production workloads and larger companies |
+| **Projects** | 100 | 100 | 1,000 (can be increased) |
+| **Branches** | 10/project | 10/project | 25/project |
+| **Compute** | 100 CU-hours/project | $0.106/CU-hour | $0.222/CU-hour |
+| **Autoscaling max** | 2 CU (8 GB RAM) | 16 CU (64 GB RAM) | 16 CU autoscaling; fixed up to 56 CU |
+| **Scale to zero** | After 5 min (cannot disable) | After 5 min (can disable) | Configurable (1 min to always on) |
+| **Storage** | 0.5 GB/project | $0.35/GB-month | $0.35/GB-month |
+| **Public network transfer** | 5 GB included | 100 GB included, then $0.10/GB | 100 GB included, then $0.10/GB |
+| **Restore window** | 6 hours (up to 1 GB-month) | Up to 7 days | Up to 30 days |
+| **Instant restore** | — | $0.20/GB-month | $0.20/GB-month |
+| **Snapshots** | 1 manual | 10 manual | 10 manual |
+| **Monitoring retention** | 1 day | 3 days | 14 days |
+| **Metrics/logs export** | — | — | Yes |
+| **IP Allow** | — | — | Yes |
+| **Private networking** | — | — | $0.01/GB |
+| **Protected branches** | — | Yes | Yes |
+| **Compliance (SOC 2, HIPAA, etc.)** | — | — | Yes |
+| **Uptime SLA** | — | — | Yes |
+| **Support** | Community | Billing support | Standard / Business / Production |
+
+<Note>
+Invoices under $0.50 are not collected.
+</Note>
+
+## How billing works
+
+### Compute
+
+Compute usage is measured in **CU-hours** (Compute Unit hours). Each Compute Unit (CU) represents approximately 4 GB of RAM plus associated CPU and local SSD.
+
+```
+compute size (CU) × hours running = CU-hours billed
+```
+
+Examples:
+
+- 0.25 CU for 4 hours = 1 CU-hour
+- 2 CU for 3 hours = 6 CU-hours
+- 8 CU for 2 hours = 16 CU-hours
+
+All computes in your project count toward usage, including read replicas. Computes that are suspended due to scale-to-zero do not accrue CU-hours.
+
+**Free plan**: 100 CU-hours/project/month included (enough to run a 0.25 CU compute for 400 hours/month).
+
+### Storage
+
+Storage is billed in **GB-months**, metered hourly on actual usage at $0.35/GB-month (Launch and Scale).
+
+- **Root branches**: billed on logical data size
+- **Child branches**: billed on the minimum of accumulated changes since creation or logical data size
+
+When a child branch is first created, it consumes no storage. As you write data to it, a delta is recorded. You're never billed more than your actual data size for a child branch.
+
+<Warning>
+Even though child branch storage is capped at your data size, unused branches accumulate changes over time and add to storage costs. Set expiration dates on development and preview branches, and delete them when they're no longer needed.
+</Warning>
+
+### Extra branches
+
+Paid plans include a set number of branches per project. Additional branches are billed at **$1.50/branch-month**, prorated hourly (~$0.002/hour).
+
+Maximum branches per project on paid plans: 5,000 (request an increase if needed).
+
+### Instant restore storage
+
+Neon stores change history to support point-in-time restore. This is billed at $0.20/GB-month on paid plans, based on the history retained for root branches. Child branches do not add to this charge.
+
+You control costs by configuring the [restore window](/manage/projects#restore-window).
+
+### Network transfer
+
+Public network transfer (egress) is free up to your plan's monthly allowance. Usage beyond the allowance is billed at $0.10/GB.
+
+Private network transfer (Scale plan only, via AWS PrivateLink) is billed at $0.01/GB bidirectionally.
+
+## Cost examples
+
+### Launch plan
+
+| Usage level | Compute | Storage | Instant restore | Total |
+|-------------|---------|---------|-----------------|-------|
+| Light (10 CU-hours, 2 GB root, 1 GB child) | $1.06 | $1.05 | $0.20 | ~$2.31 |
+| Moderate (120 CU-hours, 20 GB root, 5 GB child) | $12.72 | $8.75 | $2.00 | ~$23.47 |
+| Heavier (250 CU-hours, 40 GB root, 10 GB child) | $26.50 | $17.50 | $4.00 | ~$48.00 |
+
+### Scale plan
+
+| Usage level | Compute | Storage | Instant restore | Total |
+|-------------|---------|---------|-----------------|-------|
+| ~1,700 CU-hours, 100 GB root, 25 GB child | $377.40 | $43.75 | $10.00 | ~$431.15 |
+| ~2,600 CU-hours, 150 GB root, 40 GB child | $577.20 | $66.50 | $15.00 | ~$658.70 |
+
+Actual costs depend on your workload, compute size, and usage patterns.
+
+## Manage billing
+
+### View and update billing
+
+Access your billing information from the **Billing** page in the Neon Console:
+
+1. Navigate to the Neon Console.
+2. Select your organization from the breadcrumb menu at the top-left.
+3. Select **Billing**.
+
+From the Billing page you can:
+
+- View charges to date for the current billing period
+- Update your payment method
+- Update your billing email and company address
+- Download past invoices
+- Request billing support (paid plans)
+
+Charges are applied to your card on the first day of each month.
+
+### Change your plan
+
+<Steps>
+  <Step title="Open Billing">
+    In the Neon Console, select your organization and go to **Billing**.
+  </Step>
+  <Step title="Change plan">
+    Click **Change plan** and select the plan you want.
+  </Step>
+  <Step title="Confirm">
+    Follow the on-screen prompts. If you're downgrading, you may need to remove projects, branches, or data that exceed the new plan's limits.
+  </Step>
+</Steps>
+
+<Note>
+After upgrading, your compute picks up new plan limits (such as max compute size) only after the compute restarts.
+</Note>
+
+### Stop charges
+
+Deleting your projects does not stop monthly charges on a paid plan. To prevent further billing, downgrade to the Free plan from the [Billing](https://console.neon.tech/app/billing#change_plan) page.
+
+## Controlling costs
+
+A few practices that help keep costs in check:
+
+- **Set autoscaling limits** to cap compute size and prevent unexpected spikes.
+- **Enable scale to zero** so idle computes don't accrue CU-hours.
+- **Delete unused branches** or set expiration dates on development and preview branches.
+- **Shorten your restore window** if you don't need extended point-in-time recovery.
+
+For detailed strategies, see [Cost optimization](/manage/billing).

@@ -1,0 +1,225 @@
+---
+title: "Neon CLI reference"
+description: "Install neonctl, authenticate, and manage Neon projects, branches, databases, and roles directly from your terminal using the Neon CLI."
+---
+
+The Neon CLI (`neonctl`) is a command-line interface for managing Neon directly from your terminal. You can create and manage projects, branches, databases, and roles, retrieve connection strings, and automate Neon operations in CI/CD pipelines — all without opening the Neon Console.
+
+## Install
+
+<Steps>
+  <Step title="Choose your installation method">
+    Install `neonctl` using the package manager or binary for your platform:
+
+    <Tabs>
+      <Tab title="macOS">
+        <CodeGroup>
+
+        ```bash Homebrew
+        brew install neonctl
+        ```
+
+        ```bash npm
+        npm i -g neonctl
+        ```
+
+        ```bash bun
+        bun install -g neonctl
+        ```
+
+        </CodeGroup>
+
+        You can also download the macOS binary directly — no installation required:
+
+        ```bash
+        curl -sL https://github.com/neondatabase/neonctl/releases/latest/download/neonctl-macos -o neonctl
+        ```
+
+      </Tab>
+      <Tab title="Windows">
+        <CodeGroup>
+
+        ```bash npm
+        npm i -g neonctl
+        ```
+
+        ```bash bun
+        bun install -g neonctl
+        ```
+
+        </CodeGroup>
+
+        Or download the Windows binary directly:
+
+        ```bash
+        curl -sL -O https://github.com/neondatabase/neonctl/releases/latest/download/neonctl-win.exe
+        ```
+
+        Run it from the download directory: `neonctl-win.exe <command> [options]`
+      </Tab>
+      <Tab title="Linux">
+        <CodeGroup>
+
+        ```bash npm
+        npm i -g neonctl
+        ```
+
+        ```bash bun
+        bun install -g neonctl
+        ```
+
+        </CodeGroup>
+
+        Or download the Linux binary for your processor type:
+
+        ```bash x64
+        curl -sL https://github.com/neondatabase/neonctl/releases/latest/download/neonctl-linux-x64 -o neonctl
+        ```
+
+        ```bash ARM64
+        curl -sL https://github.com/neondatabase/neonctl/releases/latest/download/neonctl-linux-arm64 -o neonctl
+        ```
+
+      </Tab>
+    </Tabs>
+
+    <Note>
+      npm installation requires [Node.js 18.0](https://nodejs.org/en/download/) or higher. You can also run the CLI without installing it using `npx neonctl <command>` or `bunx neonctl <command>`.
+    </Note>
+  </Step>
+
+  <Step title="Verify the installation">
+    Check that the CLI is available by printing the version:
+
+    ```bash
+    neon --version
+    ```
+
+    You should see output like `1.15.0`.
+  </Step>
+
+  <Step title="Authenticate">
+    Connect the CLI to your Neon account. The recommended method is web authentication:
+
+    ```bash
+    neon auth
+    ```
+
+    This opens a browser window where you authorize the CLI to access your account. Your credentials are stored in `~/.config/neonctl/credentials.json` for future commands.
+
+    **API key authentication**
+
+    If you prefer not to use browser auth — for example, in CI/CD environments — pass a Neon API key directly:
+
+    ```bash
+    neon projects list --api-key <neon_api_key>
+    ```
+
+    To avoid repeating `--api-key` on every command, export it as an environment variable:
+
+    ```bash
+    export NEON_API_KEY=<neon_api_key>
+    ```
+
+    The CLI resolves credentials in this order: `--api-key` option, then the `NEON_API_KEY` environment variable, then the credentials file from `neon auth`, and finally it initiates a new browser authentication if nothing else is found.
+
+    <Tip>
+      For Vercel-Managed Integration users: you must authenticate using a Neon API key. The `neon auth` browser flow requires an account registered directly with Neon.
+    </Tip>
+  </Step>
+</Steps>
+
+## Commands
+
+| Command | Subcommands | Description |
+|---|---|---|
+| `auth` | | Authenticate |
+| `me` | | Show current user |
+| `orgs` | `list` | Manage organizations |
+| [`projects`](/reference/cli-projects) | `list`, `create`, `update`, `delete`, `recover`, `get` | Manage projects |
+| [`branches`](/reference/cli-branches) | `list`, `create`, `reset`, `restore`, `rename`, `schema-diff`, `set-default`, `set-expiration`, `add-compute`, `delete`, `get` | Manage branches |
+| [`databases`](/reference/cli-databases) | `list`, `create`, `delete` | Manage databases |
+| `roles` | `list`, `create`, `delete` | Manage roles |
+| `ip-allow` | `list`, `add`, `remove`, `reset` | Manage IP Allow |
+| `vpc` | `endpoint`, `project` | Manage VPC endpoints |
+| `operations` | `list` | Manage operations |
+| `connection-string` | | Get a connection string |
+| `set-context` | | Set the current context |
+| `init` | | Initialize for AI assistants |
+| `completion` | | Generate completion script |
+
+## Global options
+
+Global options work with any `neonctl` command.
+
+| Option | Description | Type | Default |
+|---|---|---|---|
+| `-o, --output` | Output format: `json`, `yaml`, or `table` | string | `table` |
+| `--config-dir` | Path to the neonctl configuration directory | string | `~/.config/neonctl` |
+| `--api-key` | Neon API key | string | `NEON_API_KEY` env var |
+| `--color` | Colorize output. Use `--no-color` to disable | boolean | `true` |
+| `--analytics` | Usage analytics. Use `--no-analytics` to opt out | boolean | `true` |
+| `-v, --version` | Show the CLI version | boolean | |
+| `-h, --help` | Show help | boolean | |
+
+### `--output`
+
+Sets the output format. The default `table` format is concise but limited. Use `json` or `yaml` to see all returned fields — useful when scripting or debugging:
+
+```bash
+neon me --output json
+```
+
+### `--config-dir`
+
+Overrides the default configuration directory where `credentials.json` is stored. Only needed if you have moved your credentials file:
+
+```bash
+neon projects list --config-dir /home/alex/.config/neonctl
+```
+
+### `--api-key`
+
+Authenticates a single command using a Neon API key. See [Create an API key](https://neon.tech/docs/manage/api-keys#create-an-api-key) for instructions on obtaining one:
+
+```bash
+neon projects list --api-key <neon_api_key>
+```
+
+### `--color`
+
+Output is colorized by default. Disable it for CI/CD pipelines or log aggregators where ANSI codes cause noise:
+
+```bash
+neon branches schema-diff main development --no-color
+```
+
+### `--analytics`
+
+The CLI collects anonymous usage data (command names and options — never user-defined content such as project IDs or query payloads) to help improve the product. Opt out at any time:
+
+```bash
+neon projects list --no-analytics
+```
+
+### `--context-file`
+
+Sets a background context file so you don't have to specify the project or organization on every command. Use `neon set-context` to create a context file:
+
+```bash
+neon branches list --context-file path/to/context_file
+```
+
+### `-h, --help`
+
+Prints help for `neon`, a command, or a subcommand:
+
+```bash
+neon --help
+neon branches --help
+neon branches create --help
+```
+
+## GitHub repository
+
+The Neon CLI source code is available at [github.com/neondatabase/neonctl](https://github.com/neondatabase/neonctl).

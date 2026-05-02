@@ -1,0 +1,235 @@
+---
+title: "Connect Neon to popular frameworks and ORMs"
+description: "Connect Neon to Next.js, Prisma, Django, Rails, Laravel, Drizzle, SQLAlchemy, and other popular frameworks using your DATABASE_URL connection string."
+---
+
+Neon works with any framework or ORM that supports Postgres. You connect by setting your Neon connection string as an environment variable — typically `DATABASE_URL` — and configuring your framework or ORM to use it. The examples below show the most common setups. For step-by-step setup guides, follow the links to the dedicated documentation for each tool.
+
+<Note>
+  All connection strings shown here use a pooled endpoint (the `-pooler` suffix in the hostname). This is recommended for most web and serverless workloads. For schema migrations and tools that use `SET` statements, use a direct connection string without `-pooler`. See [Connection pooling](/connect/connection-pooling) for details.
+</Note>
+
+## Framework connection examples
+
+<CodeGroup>
+
+```typescript Next.js (with node-postgres)
+// lib/db.ts
+import { Pool } from 'pg';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export default pool;
+```
+
+```typescript Next.js (with Neon serverless driver)
+// lib/db.ts
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL!);
+export default sql;
+```
+
+```python Django
+# settings.py
+import os
+import dj_database_url
+
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+    )
+}
+```
+
+```ruby Ruby on Rails
+# config/database.yml
+production:
+  adapter: postgresql
+  url: <%= ENV['DATABASE_URL'] %>
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+```
+
+```php Laravel
+# .env
+DB_CONNECTION=pgsql
+DB_URL="${DATABASE_URL}"
+```
+
+```typescript NestJS (with TypeORM)
+// app.module.ts
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+@Module({
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      url: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      autoLoadEntities: true,
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+```typescript Remix
+// app/db.server.ts
+import { Pool } from 'pg';
+
+let pool: Pool;
+
+declare global {
+  var __pool: Pool | undefined;
+}
+
+if (!global.__pool) {
+  global.__pool = new Pool({ connectionString: process.env.DATABASE_URL });
+}
+pool = global.__pool;
+
+export default pool;
+```
+
+</CodeGroup>
+
+## ORM connection examples
+
+<CodeGroup>
+
+```typescript Prisma
+// schema.prisma
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+```
+
+```typescript Drizzle ORM (HTTP)
+// db.ts
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+
+const sql = neon(process.env.DATABASE_URL!);
+export const db = drizzle(sql);
+```
+
+```typescript Drizzle ORM (WebSockets)
+// db.ts
+import { Pool } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle(pool);
+```
+
+```python SQLAlchemy
+# db.py
+import os
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    os.environ['DATABASE_URL'],
+    pool_pre_ping=True,
+)
+```
+
+```typescript TypeORM
+// data-source.ts
+import { DataSource } from 'typeorm';
+
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  url: process.env.DATABASE_URL,
+  ssl: true,
+  synchronize: false,
+  migrations: ['src/migrations/*.ts'],
+});
+```
+
+</CodeGroup>
+
+## Prisma with connection pooling
+
+Prisma requires two connection strings when using Neon's pooler: a pooled URL for runtime queries and a direct URL for migrations.
+
+```bash .env
+# Pooled connection for runtime queries
+DATABASE_URL="postgresql://alex:AbC123dEf@ep-cool-darkness-123456-pooler.us-east-2.aws.neon.tech/dbname?sslmode=require"
+
+# Direct connection for Prisma Migrate
+DIRECT_URL="postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require"
+```
+
+```prisma schema.prisma
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+```
+
+<Tip>
+  Prisma Migrate requires a direct connection because it uses `SET` statements that are not compatible with PgBouncer's transaction mode. Using `directUrl` ensures migrations run over a direct connection while queries use the pooler.
+</Tip>
+
+## Framework guides
+
+For complete setup instructions including project creation, migrations, and deployment:
+
+<CardGroup cols={3}>
+  <Card title="Next.js" icon="globe" href="/connect/frameworks">
+    Connect Next.js to Neon
+  </Card>
+  <Card title="Django" icon="globe" href="/connect/frameworks">
+    Connect Django to Neon
+  </Card>
+  <Card title="Ruby on Rails" icon="globe" href="/connect/frameworks">
+    Connect Rails to Neon
+  </Card>
+  <Card title="Laravel" icon="globe" href="/connect/frameworks">
+    Connect Laravel to Neon
+  </Card>
+  <Card title="Remix" icon="globe" href="/connect/frameworks">
+    Connect Remix to Neon
+  </Card>
+  <Card title="Astro" icon="globe" href="/connect/frameworks">
+    Connect Astro to Neon
+  </Card>
+  <Card title="NestJS" icon="globe" href="/connect/frameworks">
+    Connect NestJS to Neon
+  </Card>
+  <Card title="SvelteKit" icon="globe" href="/connect/frameworks">
+    Connect SvelteKit to Neon
+  </Card>
+  <Card title="Nuxt" icon="globe" href="/connect/frameworks">
+    Connect Nuxt to Neon
+  </Card>
+</CardGroup>
+
+## ORM guides
+
+<CardGroup cols={3}>
+  <Card title="Prisma" icon="database" href="/connect/frameworks">
+    Prisma ORM with Neon
+  </Card>
+  <Card title="Drizzle" icon="database" href="/connect/frameworks">
+    Drizzle ORM with Neon
+  </Card>
+  <Card title="SQLAlchemy" icon="database" href="/connect/frameworks">
+    SQLAlchemy with Neon
+  </Card>
+  <Card title="TypeORM" icon="database" href="/connect/frameworks">
+    TypeORM with Neon
+  </Card>
+  <Card title="Kysely" icon="database" href="/connect/frameworks">
+    Kysely with Neon
+  </Card>
+  <Card title="Elixir Ecto" icon="database" href="/connect/frameworks">
+    Ecto with Neon
+  </Card>
+</CardGroup>

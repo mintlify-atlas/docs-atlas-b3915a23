@@ -1,0 +1,103 @@
+---
+title: "Restrict database access with IP allowlists"
+description: "Configure IP allowlists in Neon to limit database access to trusted IP addresses and CIDR ranges, with optional scoping to protected branches only."
+---
+
+Neon's IP Allow feature lets you restrict connections to your project's databases to a specific set of trusted IP addresses or ranges. When an IP allowlist is configured, any connection attempt from an address not on the list is rejected before it reaches your database. This is available on the [Scale plan](/reference/plans).
+
+<Note>
+IP Allow is a project-level setting. All branches in the project share the allowlist unless you restrict it to protected branches only.
+</Note>
+
+## Add IP addresses to the allowlist
+
+<Steps>
+  <Step title="Open your project settings">
+    In the [Neon Console](https://console.neon.tech), select your project and go to **Settings**.
+  </Step>
+  <Step title="Locate the IP Allow section">
+    Scroll to the **IP Allow** section. You'll see an input field where you can enter one or more IP addresses or CIDR ranges.
+  </Step>
+  <Step title="Enter your trusted IPs">
+    Add each entry on its own line. You can use:
+
+    - A single IP address: `203.0.113.42`
+    - A CIDR range: `203.0.113.0/24`
+    - Multiple entries covering different networks or services
+
+    Common entries include your office network egress IP, your CI/CD runner's IP, and the static IPs of any services that query your database directly.
+  </Step>
+  <Step title="Save your changes">
+    Click **Save**. The allowlist takes effect immediately. New connections from unlisted IPs will be refused.
+  </Step>
+</Steps>
+
+<Warning>
+If you save an allowlist that doesn't include your current IP address, you'll immediately lose access to the database from that connection. Double-check that your own IP is included before saving.
+</Warning>
+
+## Configure IP Allow via the API
+
+You can set the IP allowlist when creating a project or updating an existing one using the [Neon API](https://api-docs.neon.tech/reference/updateproject).
+
+**Update an existing project:**
+
+```bash
+curl --request PATCH \
+     --url https://console.neon.tech/api/v2/projects/YOUR_PROJECT_ID \
+     --header 'accept: application/json' \
+     --header 'authorization: Bearer $NEON_API_KEY' \
+     --header 'content-type: application/json' \
+     --data '{
+  "project": {
+    "settings": {
+      "allowed_ips": {
+        "ips": ["203.0.113.42", "203.0.113.0/24"],
+        "protected_branches_only": false
+      }
+    }
+  }
+}'
+```
+
+Set `protected_branches_only` to `true` to apply the allowlist only to protected branches (see below).
+
+## Scope the allowlist to protected branches only
+
+For teams that want tighter controls on production data while keeping development branches more accessible, you can configure IP restrictions to apply to protected branches only. Non-protected branches in the same project remain reachable from any IP.
+
+<Steps>
+  <Step title="Designate a protected branch">
+    Follow the [Protected branches guide](/manage/branches) to mark your production or sensitive-data branch as protected.
+  </Step>
+  <Step title="Enable branch-scoped restriction">
+    In **Settings > IP Allow**, check **Restrict IP access to protected branches only**, then save.
+  </Step>
+</Steps>
+
+<Tip>
+This setup is well-suited to a workflow where developers connect to feature branches freely, but production access is locked down to a known set of IPs such as your office network, VPN, or CI/CD runner.
+</Tip>
+
+## Remove or update IP entries
+
+To remove an IP address, return to **Settings > IP Allow**, delete the entry, and save. To replace a stale IP (for example, after a CI provider changes its runner IP range), update or remove the old entry and add the new one before your next deployment.
+
+To remove all IP restrictions and allow connections from any address, clear all entries from the list and save.
+
+## Private Networking
+
+If you're on AWS and need stronger network-level isolation than IP allowlisting provides, consider Neon's Private Networking feature. It routes traffic through AWS PrivateLink, so your database is never reachable over the public internet at all.
+
+<Note>
+Private Networking is available to Neon Organization accounts. See [Private Networking](/security/ip-allow) for setup instructions.
+</Note>
+
+## Use cases
+
+| Scenario | Recommended configuration |
+| --- | --- |
+| Production database, fixed office IP | Add office egress IP; enable allowlist for all branches |
+| Production and dev databases in one project | Enable allowlist for protected branches only |
+| Connecting from a cloud service with static IPs | Add the service's published static IP range |
+| Connecting from a CI/CD pipeline | Add the runner's static IP; update when the provider rotates ranges |

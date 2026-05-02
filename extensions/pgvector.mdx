@@ -1,0 +1,348 @@
+---
+title: "pgvector: vector similarity search in Postgres"
+description: "Enable pgvector on Neon to store vector embeddings and run similarity searches using HNSW or IVFFlat indexes with cosine, L2, and inner product distance."
+---
+
+The `pgvector` extension turns your Postgres database into a vector store. You can store high-dimensional embeddings — for example from OpenAI or other model providers — and query them using several distance functions. It supports both exact and approximate nearest neighbor search, integrates with any Postgres client, and inherits all the durability and consistency guarantees of Postgres.
+
+## Enable pgvector
+
+Install the extension by running the following statement from the [Neon SQL Editor](https://console.neon.tech) or a connected `psql` session:
+
+```sql
+CREATE EXTENSION vector;
+```
+
+<Note>
+The extension name is `pgvector`, but the SQL name used in `CREATE EXTENSION` is `vector`.
+</Note>
+
+To install a specific previous version, pass the version number explicitly:
+
+```sql
+CREATE EXTENSION vector VERSION '0.7.4';
+```
+
+Neon supports the current version and one version prior. For the full version history, see the [pgvector changelog](https://github.com/pgvector/pgvector/blob/master/CHANGELOG.md).
+
+## Create a table with a vector column
+
+Vector embeddings are stored in a `VECTOR(n)` column where `n` is the number of dimensions. Adjust `n` to match the output dimensions of your embedding model. For example, OpenAI's `text-embedding-3-small` model produces 1536-dimensional vectors by default.
+
+```sql
+CREATE TABLE items (
+  id BIGSERIAL PRIMARY KEY,
+  embedding VECTOR(1536)
+);
+```
+
+<Tip>
+Larger embedding dimensions improve accuracy but cost more in storage, memory, and compute. Consider using `halfvec` instead of `vector` to halve memory usage with minimal loss in precision.
+</Tip>
+
+## Store embeddings
+
+After generating embeddings with your model provider, insert them using standard SQL. Vector literals use the `[value1, value2, ...]` format.
+
+<Steps>
+  <Step title="Insert rows">
+    ```sql
+    INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
+    ```
+  </Step>
+  <Step title="Upsert vectors">
+    ```sql
+    INSERT INTO items (id, embedding) VALUES (1, '[1,2,3]'), (2, '[4,5,6]')
+    ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding;
+    ```
+  </Step>
+  <Step title="Update a vector">
+    ```sql
+    UPDATE items SET embedding = '[1,2,3]' WHERE id = 1;
+    ```
+  </Step>
+  <Step title="Delete a vector">
+    ```sql
+    DELETE FROM items WHERE id = 1;
+    ```
+  </Step>
+</Steps>
+
+For bulk loads, use the `COPY` command with binary format for best performance.
+
+```sql
+COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
+```
+
+## Query vectors
+
+`pgvector` provides distance operator syntax for similarity queries. By default, a full sequential scan is performed — an index is not required to get results, but adding one improves performance for large tables.
+
+### Distance operators
+
+| Operator | Distance function |
+| -------- | ----------------- |
+| `<->` | L2 (Euclidean) distance |
+| `<=>` | Cosine distance |
+| `<#>` | Negative inner product |
+| `<+>` | L1 (Manhattan) distance |
+
+<Note>
+The inner product operator `<#>` returns the *negative* inner product because Postgres only supports ascending index scans. Multiply by `-1` to get the actual inner product.
+</Note>
+
+### Nearest neighbor queries
+
+Get the 5 nearest neighbors to a query vector by L2 distance:
+
+```sql
+SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+```
+
+Get the nearest neighbors by cosine distance:
+
+```sql
+SELECT * FROM items ORDER BY embedding <=> '[3,1,2]' LIMIT 5;
+```
+
+Find items within a maximum L2 distance of 5:
+
+```sql
+SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
+```
+
+<Note>
+To allow an index to be used for approximate nearest neighbor search, include both `ORDER BY` and `LIMIT` in your query.
+</Note>
+
+### Distance and similarity values
+
+Calculate raw distances or convert them to similarity scores:
+
+```sql
+-- L2 distance
+SELECT embedding <-> '[3,1,2]' AS distance FROM items;
+
+-- Cosine similarity (1 minus cosine distance)
+SELECT 1 - (embedding <=> '[3,1,2]') AS cosine_similarity FROM items;
+
+-- Inner product (multiply negative result by -1)
+SELECT (embedding <#> '[3,1,2]') * -1 AS inner_product FROM items;
+```
+
+### Aggregate queries
+
+Average all vectors in the table:
+
+```sql
+SELECT AVG(embedding) FROM items;
+```
+
+Average vectors grouped by category:
+
+```sql
+SELECT category_id, AVG(embedding) FROM items GROUP BY category_id;
+```
+
+## Index types
+
+By default, `pgvector` performs exact nearest neighbor search, which guarantees perfect recall. Adding an approximate index improves query speed for large datasets at a small cost in recall. Two index types are available: HNSW and IVFFlat.
+
+### HNSW
+
+HNSW (Hierarchical Navigable Small World) builds a multilayer graph. It offers the best query performance in terms of the speed-recall tradeoff and can be created on an empty table. It uses more memory and takes longer to build than IVFFlat.
+
+HNSW supports the following vector types:
+
+| Type | Max dimensions |
+| ---- | -------------- |
+| `vector` | 2,000 |
+| `halfvec` | 4,000 |
+| `bit` | 64,000 |
+| `sparsevec` | 1,000 non-zero elements |
+
+Create an HNSW index for each distance function:
+
+<CodeGroup>
+
+```sql L2 distance
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
+```
+
+```sql Cosine distance
+CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
+```
+
+```sql Inner product
+CREATE INDEX ON items USING hnsw (embedding vector_ip_ops);
+```
+
+```sql L1 distance
+CREATE INDEX ON items USING hnsw (embedding vector_l1_ops);
+```
+
+</CodeGroup>
+
+**Build parameters** — tune index quality vs. build time:
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops)
+WITH (m = 16, ef_construction = 64);
+```
+
+- `m`: maximum number of connections per layer (default: `16`)
+- `ef_construction`: size of the dynamic candidate list during construction (default: `64`). Higher values improve recall at the cost of build time.
+
+**Query parameter** — tune query speed vs. recall:
+
+```sql
+SET hnsw.ef_search = 100;
+```
+
+The default is `40`. To set it for a single query only:
+
+```sql
+BEGIN;
+SET LOCAL hnsw.ef_search = 100;
+SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+COMMIT;
+```
+
+### IVFFlat
+
+IVFFlat divides vectors into lists and searches the lists closest to the query. It has faster build times and lower memory usage than HNSW, but lower query performance for the same recall target. Create an IVFFlat index after the table has data — the training step requires existing rows.
+
+Good starting points for the `lists` parameter:
+
+- Up to 1M rows: `rows / 1000`
+- Over 1M rows: `sqrt(rows)`
+
+<CodeGroup>
+
+```sql L2 distance
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+```
+
+```sql Cosine distance
+CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+```sql Inner product
+CREATE INDEX ON items USING ivfflat (embedding vector_ip_ops) WITH (lists = 100);
+```
+
+</CodeGroup>
+
+**Query parameter** — number of lists to probe (default: `1`):
+
+```sql
+SET ivfflat.probes = 10;
+```
+
+Higher values improve recall at the cost of speed. Setting probes to the number of lists gives exact nearest neighbor search (the index will not be used by the planner).
+
+## Optimize index build time
+
+For large tables, tune two session variables before running `CREATE INDEX`:
+
+```sql
+-- Increase memory for index build (do not exceed 50-60% of available RAM)
+SET maintenance_work_mem = '10 GB';
+
+-- Use more parallel workers (match your compute's CPU count)
+SET max_parallel_maintenance_workers = 7;
+```
+
+Check index build progress:
+
+```sql
+SELECT phase, round(100.0 * blocks_done / nullif(blocks_total, 0), 1) AS "%"
+FROM pg_stat_progress_create_index;
+```
+
+<Tip>
+Build indexes after loading your initial data. It's significantly faster than building on an empty table and then inserting rows.
+</Tip>
+
+## Filtering with WHERE clauses
+
+To run approximate nearest neighbor search with filters, create a partial index on the filter condition:
+
+```sql
+-- Exact search with a regular index on the filter column
+CREATE INDEX ON items (category_id);
+
+-- Approximate search with a partial HNSW index
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops)
+WHERE (category_id = 123);
+
+-- Query using the partial index
+SELECT * FROM items WHERE category_id = 123
+ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+```
+
+For many different filter values, use Postgres table partitioning:
+
+```sql
+CREATE TABLE items (
+  embedding vector(3),
+  category_id int
+) PARTITION BY LIST(category_id);
+```
+
+## Specialized vector types
+
+### Half-precision vectors
+
+`halfvec` stores embeddings as 16-bit floats, halving memory usage with minimal precision loss. Useful when working with large datasets or memory-constrained computes.
+
+```sql
+CREATE TABLE items (id BIGSERIAL PRIMARY KEY, embedding HALFVEC(1536));
+```
+
+### Binary vectors
+
+`bit` stores each dimension as a single bit. Much lower storage cost, but lower accuracy.
+
+```sql
+CREATE TABLE items (id BIGSERIAL PRIMARY KEY, embedding BIT(3));
+INSERT INTO items (embedding) VALUES ('000'), ('111');
+
+-- Nearest neighbor by Hamming distance
+SELECT * FROM items ORDER BY embedding <~> '101' LIMIT 5;
+```
+
+### Sparse vectors
+
+`sparsevec` is efficient for high-dimensional vectors where most values are zero.
+
+```sql
+CREATE TABLE items (id BIGSERIAL PRIMARY KEY, embedding SPARSEVEC(5));
+
+-- Format: {index1:value1, index2:value2}/dimensions (indices start at 1)
+INSERT INTO items (embedding) VALUES ('{1:1,3:2,5:3}/5'), ('{1:4,3:5,5:6}/5');
+
+-- Nearest neighbor by L2 distance
+SELECT * FROM items ORDER BY embedding <-> '{1:3,3:1,5:2}/5' LIMIT 5;
+```
+
+## Binary quantization
+
+Binary quantization compresses dense embeddings to binary representations using expression indexing, which can dramatically reduce index size and improve search speed.
+
+```sql
+-- Create an HNSW index using binary quantization
+CREATE INDEX ON items USING hnsw ((binary_quantize(embedding)::bit(3)) bit_hamming_ops);
+
+-- Search by Hamming distance on quantized vectors
+SELECT * FROM items
+ORDER BY binary_quantize(embedding)::bit(3) <~> binary_quantize('[1,-2,3]')
+LIMIT 5;
+
+-- Re-rank top candidates using original vectors for better recall
+SELECT * FROM (
+    SELECT * FROM items
+    ORDER BY binary_quantize(embedding)::bit(3) <~> binary_quantize('[1,-2,3]')
+    LIMIT 20
+) ORDER BY embedding <=> '[1,-2,3]' LIMIT 5;
+```

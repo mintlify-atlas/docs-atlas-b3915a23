@@ -1,0 +1,213 @@
+---
+title: "Neon Python SDK reference"
+description: "Install neon-api to manage Neon projects, branches, databases, roles, and endpoints from Python using a typed wrapper around the Neon Management API."
+---
+
+The `neon-api` package is a Python wrapper around the [Neon Management API](/reference/api-reference). It gives you a clean, Pythonic interface for managing projects, branches, databases, roles, compute endpoints, and operations without constructing raw HTTP requests. The package is published on [PyPI](https://pypi.org/project/neon-api/) and the source is on [GitHub](https://github.com/neondatabase/neon-api-python).
+
+## Installation
+
+```bash
+pip install neon-api
+```
+
+## Initialize the client
+
+```python
+from neon_api import NeonAPI
+
+neon = NeonAPI(api_key='your_api_key')
+```
+
+Store your API key in an environment variable rather than hardcoding it:
+
+```python
+import os
+from neon_api import NeonAPI
+
+neon = NeonAPI(api_key=os.environ["NEON_API_KEY"])
+```
+
+You can create an API key in the Neon Console under **Account settings** > **API keys**.
+
+## Usage examples
+
+### List projects
+
+All Neon accounts are organization-based. To list your projects, first retrieve the user's organization ID, then pass it to `projects()`:
+
+```python
+import os
+from neon_api import NeonAPI
+
+neon = NeonAPI(api_key=os.environ["NEON_API_KEY"])
+
+# Get the current user's organizations
+orgs = neon.current_user_organizations()
+org_id = orgs[0].id
+
+# List projects in that organization
+projects = neon.projects(org_id=org_id)
+for project in projects:
+    print(project.id, project.name)
+```
+
+### Create a project
+
+```python
+new_project = neon.project_create(
+    project_id=None,
+    name="my-new-project",
+    region_id="aws-us-east-1",
+    pg_version=17
+)
+print("Created project:", new_project.project.id)
+```
+
+### Create a branch
+
+```python
+branch = neon.branch_create(
+    project_id="spring-example-302709",
+    branch={"name": "dev-branch"}
+)
+print("Created branch:", branch.branch.id)
+```
+
+### Get a connection URI
+
+```python
+uri = neon.connection_uri(
+    project_id="spring-example-302709",
+    database_name="neondb",
+    role_name="neondb_owner"
+)
+print(uri)
+```
+
+### Create a database
+
+```python
+db = neon.database_create(
+    project_id="spring-example-302709",
+    branch_id="br-example-123",
+    name="analytics",
+    owner_name="neondb_owner"
+)
+print("Created database:", db.database.name)
+```
+
+### Reset a role password
+
+```python
+neon.role_password_reset(
+    project_id="spring-example-302709",
+    branch_id="br-example-123",
+    role_name="neondb_owner"
+)
+```
+
+## Method reference
+
+The `NeonAPI` class exposes the following methods. All parameters that accept `**json` pass keyword arguments directly as the request body.
+
+### User and account
+
+| Method | Description |
+|---|---|
+| `me()` | Returns the current user |
+| `current_user_organizations()` | Returns the current user's organizations |
+
+### API keys
+
+| Method | Description |
+|---|---|
+| `api_keys()` | List API keys for your account |
+| `api_key_create(**json)` | Create a new API key |
+| `api_key_delete(key_id)` | Delete an API key |
+
+### Projects
+
+| Method | Description |
+|---|---|
+| `projects(org_id=None)` | List projects; pass `org_id` to scope to an organization |
+| `project(project_id)` | Get a specific project |
+| `project_create(project_id, **json)` | Create a new project |
+| `project_update(project_id, **json)` | Update a project |
+| `project_delete(project_id)` | Delete a project |
+| `project_permissions(project_id)` | List permissions for a project |
+| `project_permissions_grant(project_id, **json)` | Grant permissions on a project |
+| `project_permissions_revoke(project_id, **json)` | Revoke permissions on a project |
+| `connection_uri(project_id, database_name, role_name)` | Get the connection string for a project |
+
+### Branches
+
+| Method | Description |
+|---|---|
+| `branches(project_id)` | List branches for a project |
+| `branch(project_id, branch_id)` | Get a specific branch |
+| `branch_create(project_id, **json)` | Create a new branch |
+| `branch_update(project_id, branch_id, **json)` | Update a branch |
+| `branch_delete(project_id, branch_id)` | Delete a branch |
+| `branch_set_as_primary(project_id, branch_id)` | Set a branch as primary |
+
+<Note>
+  Branch names are optional. If you don't provide one, the branch ID is used as the name. When provided, names must be unique within the project, up to 256 characters, and cannot be empty or only whitespace.
+</Note>
+
+### Databases
+
+| Method | Description |
+|---|---|
+| `databases(project_id, branch_id)` | List databases on a branch |
+| `database(project_id, branch_id, database_id)` | Get a specific database |
+| `database_create(project_id, branch_id, **json)` | Create a database |
+| `database_update(project_id, branch_id, **json)` | Update a database |
+| `database_delete(project_id, branch_id, database_id)` | Delete a database |
+
+### Endpoints
+
+| Method | Description |
+|---|---|
+| `endpoints(project_id, branch_id)` | List endpoints on a branch |
+| `endpoint_create(project_id, branch_id, **json)` | Create an endpoint |
+| `endpoint_update(project_id, branch_id, endpoint_id, **json)` | Update an endpoint |
+| `endpoint_delete(project_id, branch_id, endpoint_id)` | Delete an endpoint |
+| `endpoint_start(project_id, branch_id, endpoint_id)` | Start an endpoint |
+| `endpoint_suspend(project_id, branch_id, endpoint_id)` | Suspend an endpoint |
+
+### Roles
+
+| Method | Description |
+|---|---|
+| `roles(project_id, branch_id)` | List roles on a branch |
+| `role(project_id, branch_id, role_name)` | Get a specific role |
+| `role_create(project_id, branch_id, role_name)` | Create a role |
+| `role_delete(project_id, branch_id, role_name)` | Delete a role |
+| `role_password_reveal(project_id, branch_id, role_name)` | Reveal a role's password |
+| `role_password_reset(project_id, branch_id, role_name)` | Reset a role's password |
+
+### Organizations
+
+| Method | Description |
+|---|---|
+| `organization(org_id)` | Get details for a specific organization |
+
+### Operations
+
+| Method | Description |
+|---|---|
+| `operations(project_id)` | List operations for a project |
+| `operation(project_id, operation_id)` | Get a specific operation |
+
+### Consumption metrics (experimental)
+
+| Method | Description |
+|---|---|
+| `consumption()` | List project consumption metrics |
+
+## Further reading
+
+- [neon-api on Read the Docs](https://neon-api-python.readthedocs.io/en/latest/) — full quickstart and method documentation
+- [Neon API reference](https://api-docs.neon.tech) — underlying REST API with request/response schemas
+- [Manage API keys](/reference/api-reference) — creating and revoking API keys

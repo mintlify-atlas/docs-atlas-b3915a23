@@ -1,0 +1,104 @@
+---
+title: "Read replicas for scalable Postgres reads"
+description: "Neon read replicas read from shared storage with no data duplication or extra storage cost. Create them in seconds and scale read traffic horizontally."
+---
+
+Neon read replicas let you offload read traffic from your primary compute without duplicating your data. Instead of replicating data to a separate server, Neon read replicas read directly from the same underlying storage as your primary read-write compute. You get horizontal read scaling at a fraction of the usual cost and complexity.
+
+## How Neon read replicas work
+
+A read replica is a separate, read-only compute instance attached to the same Neon branch as your primary compute. Read queries routed to the replica are served from the same Pageserver — the storage layer that handles read requests in Neon's architecture.
+
+Because there is no data replication, creating a read replica takes only a few seconds. You are not paying for extra storage, and there is no replication lag to manage at the storage level.
+
+Neon read replicas are **asynchronously consistent**. Safekeepers — Neon's WAL storage components — keep replica computes up to date with the most recent changes from the primary, maintaining eventual consistency.
+
+## What makes them different
+
+- **No additional storage**: data is not copied or replicated; the replica reads from the same storage as the primary.
+- **Near-instant creation**: because there is no data to move, a replica is ready in seconds.
+- **Cost-efficient**: no extra storage or data transfer costs. Replicas also support [autoscaling](/features/autoscaling) and [scale to zero](/features/scale-to-zero).
+- **No replication lag at startup**: a replica that has been scaled to zero comes back up to date almost instantly when it restarts.
+
+<Note>
+The Free plan supports a maximum of 3 read replica computes per project. Read replicas can only be created in the same region as the primary database.
+</Note>
+
+## Use cases
+
+<CardGroup cols={3}>
+  <Card title="Horizontal scaling" icon="arrow-up-right">
+    Distribute read-heavy traffic across multiple replicas to increase throughput without scaling the primary compute.
+  </Card>
+  <Card title="Analytics and reporting" icon="chart-bar">
+    Run resource-intensive queries and reports against a replica so they don't compete with transactional workloads on the primary.
+  </Card>
+  <Card title="Read-only access" icon="lock">
+    Provide external users, data analysts, or third-party tools with a connection that has no write permissions.
+  </Card>
+</CardGroup>
+
+## Creating a read replica
+
+<Tabs>
+  <Tab title="Console">
+    <Steps>
+      <Step title="Go to the Branches page">
+        In the [Neon Console](https://console.neon.tech), select your project and open the **Branches** page.
+      </Step>
+      <Step title="Select your branch">
+        Click the branch you want to add a replica to.
+      </Step>
+      <Step title="Add a read replica">
+        Click **Add Read Replica**. Choose a compute size, then confirm. The replica is ready in seconds.
+
+        </Step>
+    </Steps>
+  </Tab>
+  <Tab title="CLI">
+    ```bash
+    neon branches add-compute mybranch --type read_only
+    ```
+
+    List computes on a branch to confirm the replica was created:
+
+    ```bash
+    neon branches list-computes mybranch
+    ```
+  </Tab>
+  <Tab title="API">
+    ```bash
+    curl --request POST \
+         --url https://console.neon.tech/api/v2/projects/{project_id}/endpoints \
+         --header 'Accept: application/json' \
+         --header "Authorization: Bearer $NEON_API_KEY" \
+         --header 'Content-Type: application/json' \
+         --data '{
+           "endpoint": {
+             "type": "read_only",
+             "branch_id": "br-your-branch-id"
+           }
+         }' | jq
+    ```
+  </Tab>
+</Tabs>
+
+## Connecting to a read replica
+
+After creating a read replica, you get a separate connection string for it. The replica endpoint has a different hostname than the primary. For example:
+
+```text
+# Primary (read-write)
+postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require
+
+# Read replica (read-only)
+postgresql://alex:AbC123dEf@ep-mute-forest-654321.us-east-2.aws.neon.tech/dbname?sslmode=require
+```
+
+You can retrieve both connection strings from the **Connection Details** section of the branch in the Neon Console. Point read-heavy parts of your application — analytics queries, reporting jobs, background data exports — at the replica endpoint, and keep writes going to the primary.
+
+## Cross-region reads
+
+Neon only supports read replicas within the same region as the primary database. If you need reads in a different region, you can create a second Neon project in that region and use [Neon-to-Neon logical replication](/import/overview) to keep it in sync. Read-only access to that secondary project can then be managed at the application level.
+
+For more details, see [Create and manage read replicas](/features/read-replicas).

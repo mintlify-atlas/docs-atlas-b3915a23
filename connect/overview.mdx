@@ -1,0 +1,76 @@
+---
+title: "Connect to Neon from any application"
+description: "Learn how to find your Neon connection string, understand the connection string format, SSL requirements, and navigate available connection options."
+---
+
+Neon is a fully managed serverless Postgres service, and connecting to it works the same way as any standard Postgres database. You get a connection string from the Neon Console, set it as an environment variable in your app, and connect using any Postgres-compatible driver or ORM. All connections to Neon require SSL/TLS encryption.
+
+## Connection string format
+
+A Neon connection string follows the standard Postgres URI format:
+
+```text
+postgresql://[user]:[password]@[neon_hostname]/[dbname]?sslmode=require
+```
+
+A real connection string looks like this:
+
+```text shouldWrap
+postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require
+```
+
+The hostname always includes your compute's endpoint ID, which starts with `ep-`. This is how Neon routes your connection to the correct compute.
+
+## Get your connection string from the Console
+
+<Steps>
+  <Step title="Open the Connect modal">
+    In the [Neon Console](https://console.neon.tech), go to your **Project Dashboard** and click the **Connect** button.
+  </Step>
+  <Step title="Select your branch, database, and role">
+    Use the dropdowns to choose the branch, compute, database, and role you want to connect with. The connection string updates automatically.
+  </Step>
+  <Step title="Copy the connection string">
+    Copy the string and paste it into your `.env` file or application configuration. By default, Neon provides a pooled connection string (with `-pooler` in the hostname). Toggle **Connection pooling** off if you need a direct connection.
+  </Step>
+</Steps>
+
+<Note>
+  Neon requires SSL on all connections. The `sslmode=require` parameter is included in your connection string by default. For the highest level of security, use `sslmode=verify-full`. See [Connect to Neon securely](/connect/overview) for details.
+</Note>
+
+## Where to find your password
+
+Your password is embedded in the connection string shown in the **Connect to your database** modal. If you lose it, open the modal again to retrieve the full string.
+
+## Default port
+
+Neon uses the default Postgres port, `5432`. You do not need to specify it in the connection string unless your client requires it explicitly.
+
+## Pooled vs. direct connections
+
+The Console provides a pooled connection string by default. The `-pooler` suffix in the hostname routes your connection through PgBouncer, which supports up to 10,000 concurrent client connections.
+
+| Use case | Connection type |
+|---|---|
+| Web apps, serverless functions, ORMs | Pooled (`-pooler` in hostname) |
+| Schema migrations, `pg_dump`, logical replication | Direct (no `-pooler`) |
+
+See [Connection pooling](/connect/connection-pooling) for a full comparison.
+
+## Explore connection options
+
+<CardGroup cols={2}>
+  <Card title="Connection pooling" icon="layers" href="/connect/connection-pooling">
+    Enable PgBouncer to handle up to 10,000 concurrent connections. Recommended for serverless and web workloads.
+  </Card>
+  <Card title="Frameworks and ORMs" icon="code" href="/connect/frameworks">
+    Connection examples for Next.js, Prisma, Django, Rails, Laravel, and more.
+  </Card>
+  <Card title="Serverless driver" icon="bolt" href="/connect/serverless-driver">
+    Query Neon from edge runtimes over HTTP or WebSockets using the `@neondatabase/serverless` package.
+  </Card>
+  <Card title="Connect securely" icon="shield" href="/connect/overview">
+    Configure `sslmode` for certificate verification and protection against man-in-the-middle attacks.
+  </Card>
+</CardGroup>

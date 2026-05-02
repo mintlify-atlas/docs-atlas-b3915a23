@@ -1,28 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Neon",
+  "projectType": "saas",
+  "projectName": "Neon",
+  "projectDescription": "Neon is a serverless Postgres platform with autoscaling, database branching, instant restore, and a built-in Data API designed to help developers build and scale applications faster.",
   "theme": "luma",
-  "colors": {
-    "primary": "#34c48c",
-    "light": "#3ea26e",
-    "dark": "#1c6c54"
-  },
-  "favicon": "/favicon.svg",
-  "logo": {
-    "light": "https://media.brand.dev/2c8fcfc8-da2b-46a9-9167-ae6b94cd814b.svg",
-    "dark": "https://media.brand.dev/bed68417-c084-4048-b508-a7da24aade1b.png"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/neondatabase/website"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/neondatabase/website"
-    }
-  },
+  "primaryColor": "#34c48c",
+  "lightColor": "#3ea26e",
+  "darkColor": "#1c6c54",
   "navigation": {
     "tabs": [
       {
@@ -31,7 +14,7 @@
           {
             "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "get-started/signing-up",
               "get-started/connect-neon",
               "get-started/workflow-primer",
@@ -151,5 +134,30 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Serverless Postgres with instant provisioning",
+    "Database branching: copy-on-write clones for dev/test workflows",
+    "Autoscaling: compute scales up and down automatically based on load",
+    "Scale to zero: compute suspends during inactivity to save costs",
+    "Read replicas for horizontal read scalability",
+    "Point-in-time restore and branch restore",
+    "Neon Auth: built-in managed authentication that branches with your database",
+    "Data API: REST/GraphQL access to Postgres over HTTP",
+    "Neon MCP server for AI coding agents",
+    "pgvector support for AI/ML embeddings and vector search",
+    "Broad extension support (PostGIS, pgcron, pg_search, etc.)",
+    "CLI and Terraform provider for infrastructure-as-code workflows"
+  ],
+  "publicApiSurface": [
+    "Neon Management API (REST): /projects, /branches, /databases, /roles, /operations",
+    "Data API: HTTP-based Postgres query interface at /api/query",
+    "@neondatabase/neon-js TypeScript SDK: createClient(), createAuthClient()",
+    "@neondatabase/serverless: WebSocket/HTTP Postgres driver for edge environments",
+    "Neon CLI: neonctl projects, branches, databases, roles, connection-string",
+    "Neon MCP Server: AI agent tool integration for Postgres management",
+    "Terraform provider: neondatabase/neon resources for IaC",
+    "Python SDK: neon_api Python client",
+    "GitHub Actions: neondatabase/create-branch-action, delete-branch-action"
+  ]
 }

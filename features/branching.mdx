@@ -1,0 +1,121 @@
+---
+title: "Database branching in Neon"
+description: "Copy-on-write database branches let you isolate dev, test, and CI/CD workflows from production. Create branches from any point in time, instantly."
+---
+
+Neon branching lets you instantly create isolated copies of your database — without duplicating storage. Branches are copy-on-write clones of your data, so you can create them from any point in time, experiment freely, and delete them when done, all without touching your production database.
+
+## What is a branch?
+
+A branch is a copy-on-write clone of your data. When you create a branch, Neon does not physically copy the data. Instead, the branch shares the underlying storage with its parent and only records the delta — the changes made after branching. This means:
+
+- Branch creation is near-instant regardless of database size.
+- Creating a branch adds no load to the parent and does not affect production performance.
+- Writes to a branch are isolated from the parent and stored as a delta.
+
+Each Neon project starts with a root branch called `main`. You can branch from `main` or from any previously created branch.
+
+<Note>
+Neon also supports schema-only branching if you want to share structure without copying data. See [schema-only branching](/features/branching) for details.
+</Note>
+
+## Use cases
+
+<CardGroup cols={2}>
+  <Card title="Development" icon="code">
+    Give every developer a full copy of production data to work against, with zero setup time and no risk to production.
+  </Card>
+  <Card title="Testing" icon="flask-conical">
+    Run tests against isolated branches in parallel. Each branch has its own compute resources and is automatically hydrated with parent data.
+  </Card>
+  <Card title="CI/CD pipelines" icon="git-branch">
+    Spin up a branch per pull request, run migrations, validate queries, and tear it down when the PR closes — automatically.
+  </Card>
+  <Card title="Data recovery" icon="clock-rotate-left">
+    Create a branch from a past point in time to recover from accidental deletions or examine historical states.
+  </Card>
+</CardGroup>
+
+### Temporary environments with expiration
+
+You can set an expiration date on a branch so it is deleted automatically. This is useful for:
+
+- CI/CD testing environments tied to a pull request
+- Feature development branches with a known lifespan
+- AI-driven development workflows
+
+See [branch expiration](/manage/branches) for configuration details.
+
+## How to create a branch
+
+<Tabs>
+  <Tab title="Console">
+    <Steps>
+      <Step title="Open your project">
+        Go to the [Neon Console](https://console.neon.tech) and select your project.
+      </Step>
+      <Step title="Navigate to branches">
+        Click **Branches** in the left sidebar.
+      </Step>
+      <Step title="Create a branch">
+        Click **New branch** and fill in the details:
+
+        - **Name**: a descriptive name such as `dev/alex` or `feature/payments`
+        - **Parent branch**: the branch to clone from (defaults to `main`)
+        - **Include data up to**: choose the current time or a specific past timestamp
+      </Step>
+      <Step title="Confirm">
+        Click **Create branch**. The branch is ready within seconds and includes a connection string you can use immediately.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="CLI">
+    Install the [Neon CLI](/reference/neon-cli) and authenticate, then run:
+
+    ```bash
+    neon branches create --name dev/alex
+    ```
+
+    To branch from a specific point in time:
+
+    ```bash
+    neon branches create --name recovery/jan-01 --parent main@2024-01-01T00:00:00Z
+    ```
+
+    List your branches at any time:
+
+    ```bash
+    neon branches list
+    ```
+  </Tab>
+  <Tab title="API">
+    Use the Neon API to create a branch programmatically:
+
+    ```bash
+    curl --request POST \
+         --url https://console.neon.tech/api/v2/projects/{project_id}/branches \
+         --header 'Accept: application/json' \
+         --header "Authorization: Bearer $NEON_API_KEY" \
+         --header 'Content-Type: application/json' \
+         --data '{
+           "endpoints": [{"type": "read_write"}],
+           "branch": {
+             "name": "dev/alex",
+             "parent_id": "br-main-branch-id"
+           }
+         }' | jq
+    ```
+
+    To branch from a timestamp, add `"parent_timestamp": "2024-01-01T00:00:00Z"` to the `branch` object.
+  </Tab>
+</Tabs>
+
+## Integrating branching into your workflow
+
+You can automate branching using the Neon CLI, API, or GitHub Actions. If you deploy with Vercel, the [Neon-managed Vercel integration](/connect/frameworks) can create a branch automatically for each preview deployment.
+
+## Data recovery with branches
+
+Neon retains a history of changes for all branches within your project's [restore window](/features/instant-restore). The defaults are 6 hours on the Free plan and 1 day on paid plans, configurable up to 7 days on Launch and 30 days on Scale.
+
+If you lose data due to an accidental deletion or a bad migration, you can restore a branch to any point within this window. See [Instant restore](/features/instant-restore) for step-by-step instructions.

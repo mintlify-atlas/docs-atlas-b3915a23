@@ -1,0 +1,152 @@
+---
+title: "Migrate from Supabase to Neon"
+description: "Export your Supabase database with pg_dump and restore it to Neon. Covers schema ownership, auth considerations, and a logical replication alternative."
+keywords: ["supabase migration", "migrate from supabase", "pg_dump supabase", "postgres migration", "neon migration"]
+---
+
+This guide walks through migrating a Postgres database from Supabase to Neon using `pg_dump` and `pg_restore`. Because Supabase ties database ownership and access control to its internal auth system, there are a few Supabase-specific details to be aware of — this guide covers them.
+
+<Note>
+For near-zero downtime, you can replicate data from Supabase to Neon using logical replication instead. See [Replicate data from Supabase](/import/from-supabase).
+</Note>
+
+## Prerequisites
+
+- A Supabase project with the database you want to migrate.
+- A Neon project. Create one at [Neon](https://neon.tech) if you don't have one. Match the Postgres version to your Supabase project.
+- `pg_dump` and `pg_restore` installed locally. These come with any standard Postgres installation. Use the latest version — check with `pg_dump -V`.
+
+## Migration steps
+
+<Steps>
+  <Step title="Get your Supabase connection details">
+    1. Log in to your Supabase account and open your project dashboard.
+    2. In the left sidebar, click **Project Settings**, then select **Database**.
+    3. Under **Connection Parameters**, find your host, database name, port, user, and password.
+
+    Construct your connection string:
+
+    ```text shouldWrap
+    postgresql://[user]:[password]@[supabase_host]:[port]/[database]
+    ```
+
+    <Note>
+    Use the direct connection string, not the connection pooler URL. Running `pg_dump` over a pooled connection can cause errors.
+    </Note>
+  </Step>
+
+  <Step title="Create a target database in Neon">
+    Create a database in Neon with the same name as your Supabase database. In the [Neon SQL Editor](/get-started/signing-up) or psql:
+
+    ```sql
+    CREATE DATABASE mydb;
+    ```
+
+    Then get your Neon connection string from **Connect** on the project dashboard:
+
+    ```text shouldWrap
+    postgresql://[user]:[password]@[neon_hostname]/[dbname]
+    ```
+  </Step>
+
+  <Step title="Export from Supabase with pg_dump">
+    Dump the `public` schema from your Supabase database:
+
+    ```bash shouldWrap
+    pg_dump -Fc -v -d postgresql://[user]:[password]@[supabase_host]:[port]/[database] --schema=public -f supabase_dump.bak
+    ```
+
+    Flag reference:
+
+    - `-Fc` — Custom format, compressed and compatible with `pg_restore`.
+    - `-v` — Verbose mode to monitor progress.
+    - `--schema=public` — Dumps only the `public` schema. See the note below about other schemas.
+
+    If the command succeeds, you'll see output like:
+
+    ```text
+    pg_dump: saving encoding = UTF8
+    pg_dump: saving standard_conforming_strings = on
+    pg_dump: dumping contents of table "public.users"
+    pg_dump: dumping contents of table "public.orders"
+    ...
+    ```
+
+    <Tip>
+    Supabase may store auth, storage, and other service data in separate schemas (`auth`, `storage`, `realtime`, etc.). If you need to migrate data from those schemas, add `--schema=auth` (or the relevant schema name) to the command. Note that Supabase-managed schemas include internal tables you likely don't want to copy — review carefully before including them.
+    </Tip>
+  </Step>
+
+  <Step title="Restore to Neon with pg_restore">
+    Restore the dump to your Neon database:
+
+    ```bash shouldWrap
+    pg_restore -v --no-owner --no-acl -d postgresql://[user]:[password]@[neon_hostname]/[dbname] supabase_dump.bak
+    ```
+
+    Flag reference:
+
+    - `--no-owner` — Skips `ALTER OWNER` statements from the dump.
+    - `--no-acl` — Skips `GRANT` and `REVOKE` statements.
+
+    Both flags are important here. Supabase ties object ownership and access control to its internal roles (like `authenticated`, `anon`, `service_role`), which don't exist in Neon. Without these flags, `pg_restore` produces errors trying to restore permissions for roles that aren't present.
+
+    You may still see a non-fatal error like:
+
+    ```text
+    pg_restore: error: could not execute query: ERROR:  schema "public" already exists
+    ```
+
+    This is harmless — the `public` schema already exists in new Neon databases.
+  </Step>
+
+  <Step title="Verify the migration">
+    Connect to your Neon database and confirm the data is correct:
+
+    ```sql
+    -- Spot-check row counts
+    SELECT COUNT(*) FROM users;
+    SELECT COUNT(*) FROM orders;
+
+    -- Browse a few rows
+    SELECT * FROM users LIMIT 5;
+    ```
+
+    Compare the results against your Supabase database to confirm data integrity.
+  </Step>
+
+  <Step title="Update your application">
+    Update your application's database connection string to point to Neon. Keep `supabase_dump.bak` as a backup until you've confirmed the migration is complete and your application is working correctly.
+  </Step>
+</Steps>
+
+## Supabase-specific considerations
+
+### Auth and user management
+
+Supabase's `auth.users` table stores user accounts, sessions, and tokens. Neon doesn't include Supabase Auth, so this data doesn't have a direct equivalent destination. If your application uses Supabase Auth:
+
+- You'll need to implement authentication separately (for example, using a third-party auth provider).
+- Application data that references `auth.users` via foreign keys will need to be handled as part of your migration plan.
+
+### Row-level security policies
+
+Supabase databases often use row-level security (RLS) policies that reference Supabase-specific roles (`authenticated`, `anon`, `service_role`). These policies are included in the dump but will fail to apply in Neon since those roles don't exist.
+
+Review your RLS policies and recreate them using Neon-compatible roles after the migration.
+
+### Supabase extensions
+
+The Import Data Assistant does not support Supabase databases due to unsupported extensions. The `pg_dump` approach in this guide works, but verify that any Postgres extensions your application uses are also available in Neon. See [Supported extensions](/extensions/overview) for the full list.
+
+## Other migration options
+
+- **Logical replication** — For larger databases or minimal downtime, replicate data from Supabase to Neon continuously until you're ready to cut over. See [Replicate data from Supabase](/import/from-supabase).
+- **CSV export** — For specific tables or smaller datasets, export to CSV and import with psql. See [Import data from CSV](/import/overview).
+
+## Reference
+
+- [pg\_dump documentation](https://www.postgresql.org/docs/current/app-pgdump.html)
+- [pg\_restore documentation](https://www.postgresql.org/docs/current/app-pgrestore.html)
+- [Migrate from any Postgres](/import/from-postgres)
+- [Replicate data from Supabase](/import/from-supabase)

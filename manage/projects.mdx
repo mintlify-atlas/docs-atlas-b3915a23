@@ -1,0 +1,330 @@
+---
+title: "Manage Neon projects"
+description: "Create, configure, and delete Neon projects. Covers default resources, project settings, compute defaults, IP allowlists, and recovering deleted projects."
+keywords: ["neon projects", "create project", "project settings", "delete project", "IP allow", "restore window", "logical replication"]
+---
+
+A Neon project is your main workspace. Within a project you create branches for different workflows — environments, features, or preview deployments. Each branch holds its own databases, roles, computes, and replicas. Your [Neon plan](/manage/billing) determines how many projects you can create and the resource limits within them.
+
+## Default resources
+
+When you create a project, Neon provisions the following resources automatically:
+
+- **Root branch** — named `production` in the Console or `main` via API/CLI. This is your project's default branch.
+- **Primary read-write compute** — the compute attached to the default branch.
+- **Database** — named `neondb` unless you specified a custom name.
+- **Role** — named after the database, for example `neondb_owner`.
+- **Storage** — Free plan includes 0.5 GB per project. Paid plans (Launch and Scale) are usage-based.
+
+## Create a project
+
+<Tabs>
+  <Tab title="Console">
+    <Steps>
+      <Step title="Open the Console">
+        Navigate to the [Neon Console](https://console.neon.tech).
+      </Step>
+      <Step title="Click New Project">
+        Click **New Project** from the Projects page.
+      </Step>
+      <Step title="Configure the project">
+        Specify values for **Project Name**, **Postgres version**, **Cloud service provider**, and **Region**. Project names are limited to 64 characters.
+      </Step>
+      <Step title="Create">
+        Click **Create Project**. You are directed to the **Project Dashboard**.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="API">
+    ```bash
+    curl 'https://console.neon.tech/api/v2/projects' \
+      -H 'Accept: application/json' \
+      -H "Authorization: Bearer $NEON_API_KEY" \
+      -H 'Content-Type: application/json' \
+      -d '{
+      "project": {
+        "name": "myproject"
+      }
+    }' | jq
+    ```
+
+    The response includes the new project's connection URI, default role, database, branch, and compute details.
+  </Tab>
+</Tabs>
+
+## View projects
+
+To view your projects:
+
+1. Navigate to the [Neon Console](https://console.neon.tech).
+2. From the breadcrumb navigation at the top-left, select your organization.
+3. The **Projects** page lists all your projects, including any shared with you.
+
+To list projects via the API:
+
+```bash
+curl 'https://console.neon.tech/api/v2/projects' \
+  -H 'Accept: application/json' \
+  -H "Authorization: Bearer $NEON_API_KEY" | jq
+```
+
+## Project settings
+
+Once you open a project, the **Settings** page lets you manage configuration and defaults. It includes the following sub-pages:
+
+| Sub-page | What you can do |
+|---|---|
+| **General** | Rename the project or copy the project ID |
+| **Compute** | Set scale-to-zero and sizing defaults for new computes |
+| **Instant restore** | Configure the restore window for point-in-time recovery |
+| **Updates** | Schedule Postgres and Neon update windows |
+| **Collaborators** | Invite external accounts to the project |
+| **Network security** | Configure IP Allow and private networking |
+| **RLS** | Enable Neon Row-Level Security |
+| **Logical replication** | Enable logical replication to external platforms |
+| **Transfer** | Move the project to another organization |
+| **Delete** | Permanently delete the project and all its resources |
+
+### Default compute settings
+
+You can change compute defaults on the **Compute** settings page. These apply to any new computes or read replicas you create.
+
+<Note>
+Changes to default compute settings only affect newly created computes. Existing computes — including those on your primary branch and read replicas — are not updated automatically. Update them individually through the **Branches** page.
+</Note>
+
+A Compute Unit (CU) represents approximately 4 GB of RAM plus associated CPU and local SSD. Neon supports two compute configurations:
+
+- **Fixed size** — from 0.25 CU to 56 CU
+- **Autoscaling** — min/max between 0.25 CU and 16 CU, with a maximum range of 8 CU between min and max
+
+### Restore window
+
+The restore window controls how far back you can recover data using [instant restore](/features/instant-restore) and [Time Travel](/features/instant-restore) queries. The default is 6 hours on the Free plan and 1 day on paid plans.
+
+To configure the restore window:
+
+<Steps>
+  <Step title="Open project settings">
+    Select a project in the Neon Console. Go to **Settings** > **Instant restore**.
+  </Step>
+  <Step title="Set the window">
+    Use the slider to select the restore window. Longer windows increase instant restore storage usage.
+  </Step>
+  <Step title="Save">
+    Click **Save**. The setting applies to all branches in the project.
+  </Step>
+</Steps>
+
+Maximum restore window by plan:
+
+| Plan | Maximum restore window |
+|------|------------------------|
+| Free | 6 hours (capped at 1 GB-month of changes) |
+| Launch | 7 days |
+| Scale | 30 days |
+
+### Configure IP Allow
+
+IP Allow restricts which IP addresses can connect to your Neon databases. By default, all IPs are permitted (`0.0.0.0`). Once you add entries, only those addresses can connect.
+
+<Tabs>
+  <Tab title="Console">
+    1. Select a project and go to **Settings** > **Network security**.
+    2. Under **IP Allow**, enter one or more IP addresses separated by commas.
+    3. Optionally select **Restrict IP Access to protected branches only**.
+    4. Click **Save changes**.
+  </Tab>
+  <Tab title="CLI">
+    ```bash
+    neon ip-allow add 203.0.113.0 203.0.113.1
+    ```
+
+    To restrict to protected branches only:
+
+    ```bash
+    neon ip-allow add 203.0.113.1 --protected-only
+    ```
+
+    To remove all IP restrictions:
+
+    ```bash
+    neon ip-allow reset
+    ```
+  </Tab>
+  <Tab title="API">
+    ```bash
+    curl -X PATCH \
+         https://console.neon.tech/api/v2/projects/$PROJECT_ID \
+         -H 'Accept: application/json' \
+         -H "Authorization: Bearer $NEON_API_KEY" \
+         -H 'Content-Type: application/json' \
+         -d '{
+      "project": {
+        "settings": {
+          "allowed_ips": {
+            "protected_branches_only": false,
+            "ips": ["203.0.113.0", "203.0.113.1"]
+          }
+        }
+      }
+    }' | jq
+    ```
+  </Tab>
+</Tabs>
+
+You can specify IPs in several formats:
+
+- Individual address: `192.0.2.1`
+- Range: `198.51.100.20-198.51.100.50`
+- CIDR notation: `203.0.113.0/24`
+- IPv6 (AWS-hosted projects only): `2001:DB8:5432::/48`
+
+<Note>
+Projects provisioned on Azure currently support IPv4 only.
+</Note>
+
+### Enable logical replication
+
+Logical replication lets you stream data changes from Neon to external services, warehouses, and other Postgres databases.
+
+<Warning>
+Enabling logical replication changes `wal_level` from `replica` to `logical` for all databases in the project. This cannot be reversed. All computes will restart, dropping active connections.
+</Warning>
+
+<Tabs>
+  <Tab title="Console">
+    1. Go to **Settings** > **Logical replication**.
+    2. Click **Enable**.
+  </Tab>
+  <Tab title="API">
+    ```bash
+    curl -X PATCH 'https://console.neon.tech/api/v2/projects/$PROJECT_ID' \
+      -H 'Accept: application/json' \
+      -H "Authorization: Bearer $NEON_API_KEY" \
+      -H 'Content-Type: application/json' \
+      -d '{
+      "project": {
+        "settings": {
+          "enable_logical_replication": true
+        }
+      }
+    }'
+    ```
+  </Tab>
+</Tabs>
+
+Verify it's enabled by running:
+
+```sql
+SHOW wal_level;
+```
+
+### Invite collaborators
+
+You can invite external Neon accounts to collaborate on a project. Collaborators get full access to the project except for the ability to delete it.
+
+<Note>
+Organization members cannot be added as project collaborators — they already have access through their organization membership.
+</Note>
+
+To invite a collaborator:
+
+1. Select a project and go to **Settings** > **Collaborators**.
+2. Click **Invite** and enter the email address.
+3. Click **Invite**.
+
+The invited account sees the project listed under **Shared with you** when they log in. Any usage they incur is billed to the project owner's account.
+
+## Update a project
+
+To rename a project or update its configuration via the API:
+
+```bash
+curl -X PATCH 'https://console.neon.tech/api/v2/projects/$PROJECT_ID' \
+  -H 'Accept: application/json' \
+  -H "Authorization: Bearer $NEON_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "project": {
+    "name": "new-project-name"
+  }
+}'
+```
+
+## Delete a project
+
+Deleting a project permanently removes all its computes, branches, databases, and roles.
+
+<Steps>
+  <Step title="Open Settings">
+    In the Neon Console, select the project. Go to **Settings** > **Delete**.
+  </Step>
+  <Step title="Confirm">
+    Follow the confirmation prompts to delete the project.
+  </Step>
+</Steps>
+
+To delete via the API:
+
+```bash
+curl -X DELETE \
+  'https://console.neon.tech/api/v2/projects/$PROJECT_ID' \
+  -H 'Accept: application/json' \
+  -H "Authorization: Bearer $NEON_API_KEY"
+```
+
+<Warning>
+On paid plans, deleting all your projects does not stop monthly billing. To avoid charges, downgrade to the Free plan from the [Billing](https://console.neon.tech/app/billing#change_plan) page.
+</Warning>
+
+## Recover a deleted project
+
+You can recover a deleted project within 7 days. This deletion recovery period restores all branches, endpoints, compute configurations, project settings, and collaborators.
+
+<Note>
+The deletion recovery period is separate from the restore window. The restore window enables point-in-time recovery for branch data; the deletion recovery period lets you undelete an entire project.
+</Note>
+
+The following items are **not** recovered and must be re-enabled manually after recovery:
+
+- Data API (including `authenticated` and `anonymous` roles)
+- GitHub integration
+- Vercel integrations (Neon-Managed and Vercel-Managed)
+- Monitoring integrations (Datadog, OpenTelemetry, etc.)
+
+<Tabs>
+  <Tab title="CLI">
+    List recoverable projects:
+
+    ```bash
+    neon projects list --recoverable-only
+    ```
+
+    Recover a deleted project:
+
+    ```bash
+    neon projects recover <project_id>
+    ```
+  </Tab>
+  <Tab title="API">
+    List recoverable projects:
+
+    ```bash
+    curl 'https://console.neon.tech/api/v2/projects?recoverable=true' \
+      -H 'Accept: application/json' \
+      -H "Authorization: Bearer $NEON_API_KEY" | jq
+    ```
+
+    Recover a project:
+
+    ```bash
+    curl -X POST \
+      'https://console.neon.tech/api/v2/projects/$PROJECT_ID/recover' \
+      -H 'Accept: application/json' \
+      -H "Authorization: Bearer $NEON_API_KEY" | jq
+    ```
+  </Tab>
+</Tabs>
+
+There are no storage costs or recovery fees during the 7-day deletion recovery period.

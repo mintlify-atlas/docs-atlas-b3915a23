@@ -1,0 +1,208 @@
+---
+title: "Migrate from Amazon RDS to Neon"
+description: "Migrate your Amazon RDS Postgres database to Neon using pg_dump/pg_restore or logical replication for near-zero downtime migrations."
+keywords: ["amazon rds", "rds migration", "migrate from rds", "postgres migration", "logical replication", "pg_dump"]
+---
+
+You have two main paths for migrating from Amazon RDS Postgres to Neon. The `pg_dump` / `pg_restore` approach is simpler and works for any database size, but requires scheduled downtime. Logical replication keeps your source database live throughout the migration and lets you cut over with minimal interruption. Choose based on how much downtime you can accept.
+
+## Prerequisites
+
+- An Amazon RDS Postgres instance (versions 14–17 are supported).
+- A Neon project created with the same Postgres major version as your RDS instance. See [Create a project](/manage/projects#create-a-project).
+- `pg_dump`, `pg_restore`, and `psql` installed locally. These come with any standard Postgres installation.
+- Your RDS instance must allow inbound connections from your local machine (or wherever you run the migration commands).
+
+---
+
+## Option A: Migrate with pg_dump and pg_restore
+
+This is the recommended path if you can schedule a maintenance window. It's straightforward and well-tested.
+
+<Steps>
+  <Step title="Get your RDS connection string">
+    In the AWS Console, navigate to your RDS instance and find the **Endpoint** under the **Connectivity & security** tab. Your connection string will look like:
+
+    ```text shouldWrap
+    postgresql://[user]:[password]@[rds-endpoint].[region].rds.amazonaws.com:5432/[dbname]
+    ```
+
+    Make sure your RDS security group allows inbound connections on port 5432 from your IP address.
+  </Step>
+
+  <Step title="Create a target database in Neon">
+    Create a database in Neon with the same name as your RDS database. In the [Neon SQL Editor](/get-started/signing-up) or psql:
+
+    ```sql
+    CREATE DATABASE mydb;
+    ```
+
+    Then get your Neon connection string from **Connect** on your project dashboard:
+
+    ```text shouldWrap
+    postgresql://[user]:[password]@[neon_hostname]/[dbname]
+    ```
+
+    <Note>
+    Use the unpooled connection string for `pg_dump` and `pg_restore`. Pooled connections can cause errors with these tools.
+    </Note>
+  </Step>
+
+  <Step title="Export from RDS with pg_dump">
+    ```bash shouldWrap
+    pg_dump -Fc -v -d postgresql://[user]:[password]@[rds-endpoint].rds.amazonaws.com:5432/[dbname] -f rds_dump.bak
+    ```
+
+    For large databases, add `-j <njobs>` to dump tables in parallel:
+
+    ```bash shouldWrap
+    pg_dump -Fc -v -j 4 -d postgresql://[user]:[password]@[rds-endpoint].rds.amazonaws.com:5432/[dbname] -f rds_dump.bak
+    ```
+  </Step>
+
+  <Step title="Restore to Neon with pg_restore">
+    ```bash shouldWrap
+    pg_restore -v --no-owner --no-acl -d postgresql://[user]:[password]@[neon_hostname]/[dbname] rds_dump.bak
+    ```
+
+    The `--no-owner` and `--no-acl` flags skip restoring ownership and access control settings from RDS. After the migration, review and reconfigure privileges as needed.
+
+    For large databases, add `-j <njobs>` to restore in parallel:
+
+    ```bash shouldWrap
+    pg_restore -v -j 4 --no-owner --no-acl -d postgresql://[user]:[password]@[neon_hostname]/[dbname] rds_dump.bak
+    ```
+  </Step>
+
+  <Step title="Verify the migration">
+    Connect to your Neon database and confirm the data looks correct:
+
+    ```sql
+    -- Check table counts match your RDS source
+    SELECT schemaname, tablename, n_live_tup
+    FROM pg_stat_user_tables
+    ORDER BY n_live_tup DESC;
+    ```
+  </Step>
+
+  <Step title="Update your application">
+    Update your application's `DATABASE_URL` to point to Neon and test thoroughly before decommissioning your RDS instance.
+  </Step>
+</Steps>
+
+---
+
+## Option B: Migrate with logical replication (near-zero downtime)
+
+Logical replication lets your RDS database stay live during the migration. You set up replication, let Neon catch up to your source, then cut over with a brief write pause. This approach requires more setup but minimizes downtime.
+
+### Prerequisites for logical replication
+
+- Your RDS instance must have logical replication enabled (`wal_level = logical`).
+- Neon's NAT gateway IP addresses for your region must be allowed through your RDS security group. See [NAT Gateway IP addresses](/reference/regions).
+
+<Steps>
+  <Step title="Enable logical replication on RDS">
+    Check the current `wal_level` setting on your RDS instance:
+
+    ```sql
+    SHOW wal_level;
+    ```
+
+    If it shows `replica` rather than `logical`, you need to update the parameter group:
+
+    1. In the AWS Console, go to your RDS instance and click the **DB instance parameter group** link under the **Configuration** tab.
+    2. Click **Edit**, search for `rds.logical_replication`, and set it to `1`.
+    3. Save, then reboot your RDS instance for the change to take effect.
+
+    Verify the change after reboot:
+
+    ```sql
+    SHOW wal_level;
+    -- Should return: logical
+    ```
+  </Step>
+
+  <Step title="Allow Neon's IP addresses through your RDS security group">
+    In the AWS Console, edit the inbound rules of your RDS security group to allow TCP traffic on port 5432 from each of Neon's NAT gateway IP addresses for your region. You can find these addresses at [NAT Gateway IP addresses](/reference/regions).
+  </Step>
+
+  <Step title="Copy the schema to Neon">
+    Logical replication requires the same table structure to exist on both sides. Export only the schema from RDS and restore it to Neon:
+
+    ```bash shouldWrap
+    pg_dump --schema-only -d postgresql://[user]:[password]@[rds-endpoint].rds.amazonaws.com:5432/[dbname] -f schema_only.sql
+    ```
+
+    ```bash shouldWrap
+    psql -d postgresql://[user]:[password]@[neon_hostname]/[dbname] -f schema_only.sql
+    ```
+  </Step>
+
+  <Step title="Create a publication on RDS">
+    On your RDS source database, create a publication that defines what to replicate. To replicate all tables:
+
+    ```sql
+    CREATE PUBLICATION my_publication FOR ALL TABLES;
+    ```
+
+    To replicate specific tables only:
+
+    ```sql
+    CREATE PUBLICATION my_publication FOR TABLE users, orders, products;
+    ```
+  </Step>
+
+  <Step title="Create a subscription on Neon">
+    On your Neon destination database, create a subscription pointing to your RDS publication:
+
+    ```sql shouldWrap
+    CREATE SUBSCRIPTION my_subscription
+    CONNECTION 'postgresql://[user]:[password]@[rds-endpoint].rds.amazonaws.com:5432/[dbname]'
+    PUBLICATION my_publication;
+    ```
+
+    Neon will begin copying existing data from RDS and then stream ongoing changes.
+  </Step>
+
+  <Step title="Monitor replication progress">
+    Check the subscription status on Neon to confirm data is flowing:
+
+    ```sql
+    SELECT subname, received_lsn, latest_end_lsn, last_msg_receipt_time
+    FROM pg_catalog.pg_stat_subscription;
+    ```
+
+    Wait until `received_lsn` and `latest_end_lsn` are close together, indicating Neon has nearly caught up to RDS.
+  </Step>
+
+  <Step title="Cut over">
+    1. Stop writes to your RDS database (put your application in maintenance mode or stop the application).
+    2. Wait for the remaining replication lag to drain — check `pg_stat_subscription` until `received_lsn` matches `latest_end_lsn`.
+    3. Drop the subscription on Neon:
+
+       ```sql
+       DROP SUBSCRIPTION my_subscription;
+       ```
+
+    4. Update your application's connection string to point to Neon.
+    5. Restart your application and verify it's working correctly.
+  </Step>
+</Steps>
+
+## Choosing between the two options
+
+| | pg\_dump / pg\_restore | Logical replication |
+|---|---|---|
+| Downtime required | Yes (during export + restore) | Near-zero |
+| Setup complexity | Low | Medium-high |
+| Works for any database size | Yes | Yes |
+| Requires parameter group change | No | Yes (wal_level = logical) |
+| Best for | Smaller databases, scheduled maintenance | Production databases, large datasets |
+
+## Reference
+
+- [pg\_dump documentation](https://www.postgresql.org/docs/current/app-pgdump.html)
+- [pg\_restore documentation](https://www.postgresql.org/docs/current/app-pgrestore.html)
+- [Logical replication in Neon](/import/overview)
+- [Migrate with AWS DMS](/import/overview)

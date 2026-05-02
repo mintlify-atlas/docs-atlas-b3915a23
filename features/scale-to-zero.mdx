@@ -1,0 +1,67 @@
+---
+title: "Scale to zero: pause idle Postgres compute"
+description: "Neon suspends inactive Postgres computes after 5 minutes of inactivity, eliminating idle compute costs while keeping your database available on demand."
+---
+
+Neon's scale-to-zero feature automatically suspends a compute instance when your database is idle. Instead of paying for a running Postgres server around the clock, you only pay for the time your database is actively handling queries. When a new connection arrives, Neon reactivates the compute automatically.
+
+## How it works
+
+Neon monitors compute activity continuously. After **5 minutes of inactivity**, the compute is suspended. When your application sends a query, the compute restarts and the request is served — typically within a few hundred milliseconds.
+
+The diagram below shows compute scaling to zero during an inactive period, then reactivating when traffic resumes:
+
+<Note>
+Scale to zero is only available for computes up to **16 CU** in size. Computes larger than 16 CU remain always active to ensure consistent performance.
+</Note>
+
+## Plan behavior
+
+| Plan  | Scale to zero | Configurable |
+|-------|---------------|--------------|
+| Free  | Always on (5 min) | No — fixed at 5 minutes |
+| Launch | On by default | Yes — can be disabled |
+| Scale  | On by default | Yes — can be disabled |
+
+Free plan users cannot disable scale to zero. Paid plan users can turn it off to keep a compute always active.
+
+## When to use scale to zero
+
+Scale to zero is best suited for databases that are not active at all hours:
+
+- **Development and test databases** that sit idle between work sessions
+- **Preview environments** attached to pull requests
+- **Internal tools** with limited and predictable usage patterns
+- **Low-traffic production databases** that don't require guaranteed instant response
+
+For high-traffic production workloads where cold start latency is unacceptable, consider disabling scale to zero to keep compute warm at all times.
+
+## Cold start latency
+
+When a scaled-to-zero compute restarts, there is a brief latency before your query is processed. In most cases this takes a few hundred milliseconds. The exact time depends on compute size and whether the Postgres process needs to reload its memory buffers.
+
+<Tip>
+To reduce the impact of cold starts in production, you can use a connection pooler like [PgBouncer via Neon's pooled connection string](/connect/connection-pooling). Poolers can hold connections open and absorb the reconnect overhead before passing queries to Postgres.
+</Tip>
+
+One important note about [logical replication](/import/overview): if your Neon compute is a logical replication publisher and subscribers are actively connected, the compute remains active and does not scale to zero. See [Logical replication in Neon](/import/overview) for details.
+
+## Configuring scale to zero
+
+<Steps>
+  <Step title="Open compute settings">
+    In the [Neon Console](https://console.neon.tech), go to your project and select **Computes**, or open a branch and click **Edit compute**.
+  </Step>
+  <Step title="Toggle scale to zero">
+    In the **Edit compute** drawer, find the **Scale to zero** setting. Toggle it off to keep the compute always active, or leave it on (the default) to enable automatic suspension after 5 minutes.
+  </Step>
+  <Step title="Save">
+    Click **Save**. The change takes effect immediately.
+  </Step>
+</Steps>
+
+For full configuration instructions, see [Configuring scale to zero for Neon computes](/features/scale-to-zero).
+
+## Relationship to autoscaling
+
+Scale to zero and [autoscaling](/features/autoscaling) work together. Autoscaling manages compute resources between your configured minimum and maximum CU values while the database is active. Scale to zero takes over when the database becomes completely idle, suspending the compute entirely. When a query wakes the database, it starts at the configured minimum CU and scales up from there.

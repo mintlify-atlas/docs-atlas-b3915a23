@@ -1,0 +1,170 @@
+---
+title: "Instant restore: point-in-time recovery"
+description: "Restore a root branch to any earlier point in time using a timestamp or LSN. Neon retains WAL history within your restore window for precise data recovery."
+---
+
+Neon's instant restore feature — also known as point-in-time restore (PITR) — lets you revert a branch to any earlier state within your project's restore window. If data is lost due to an accidental deletion, a bad migration, or any other event, you can restore it precisely to the moment just before it happened, down to the millisecond.
+
+## How it works
+
+Neon stores a continuous record of all changes to your data as Write-Ahead Log (WAL) records. The [restore window](/features/instant-restore) setting determines how far back this history is retained. When you perform a restore, Neon replays history up to your selected point in time and applies it to the target branch.
+
+<Note>
+Instant restore is supported only for **root branches** (such as `main` or `production`). Child branches do not support point-in-time restore. The source branch you restore from must also be a root branch.
+</Note>
+
+A restore is a **complete overwrite** — not a merge. All data and schema on the branch from the selected restore point onwards are replaced with the historical state. All databases on the branch are affected.
+
+### Automatic backup branches
+
+Before every restore, Neon automatically creates a backup branch that preserves the branch's state at the moment of the restore. The backup is named:
+
+```
+{branch_name}_old_{head_timestamp}
+```
+
+You can use this backup to roll back the restore if needed. Backup branches appear on the **Branches** page alongside your other branches. Note that backup branches created when restoring a root branch from another branch cannot be deleted.
+
+### Connections during restore
+
+Existing connections to the restored branch are briefly interrupted during the operation. Your connection string does not change, and applications can reconnect automatically as soon as the restore is complete. Expect the restore to take a few seconds.
+
+## Restore window defaults
+
+How far back you can restore depends on your plan:
+
+| Plan   | Default restore window | Maximum |
+|--------|------------------------|---------|
+| Free   | 6 hours                | 6 hours (capped at 1 GB of history) |
+| Launch | 1 day                  | 7 days  |
+| Scale  | 1 day                  | 30 days |
+
+You can configure your restore window in **Settings > Instant restore** in the Neon Console. Increasing the window retains more WAL history, which increases instant restore storage costs. See [Restore window](/features/instant-restore) for details.
+
+## How to restore a branch
+
+<Tabs>
+  <Tab title="Console">
+    <Steps>
+      <Step title="Open the Restore page">
+        In the [Neon Console](https://console.neon.tech), navigate to your project and click **Restore** in the left sidebar.
+      </Step>
+      <Step title="Select the branch to restore">
+        Under **Branch to restore**, choose the root branch you want to revert (for example, `main` or `production`).
+      </Step>
+      <Step title="Choose a restore point">
+        To restore from the branch's own history:
+
+        1. Make sure the **From history** tab is selected.
+        2. Choose a timestamp or switch to LSN input.
+        3. Click **Next**.
+
+        To restore from another root branch:
+
+        1. Switch to the **From another branch** tab.
+        2. Select the source root branch.
+        3. Optionally disable **Restore from latest data (head)** to select a specific timestamp or LSN.
+        4. Click **Next**.
+      </Step>
+      <Step title="Confirm and restore">
+        Review the details in the confirmation window. When you're satisfied, click **Restore**.
+
+        Neon creates a backup branch automatically, then applies the restore. All databases on the branch are updated instantly.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="CLI">
+    The basic syntax for restoring a branch:
+
+    ```bash shouldWrap
+    neon branches restore <target id|name> <source id|name @ timestamp|lsn>
+    ```
+
+    **Restore a branch to its own history:**
+
+    ```bash shouldWrap
+    neon branches restore development ^self@2024-01-01T00:00:00Z --preserve-under-name development_old
+    ```
+
+    The `^self` keyword means restore from the branch's own history. The `--preserve-under-name` parameter (required when restoring to self) names the backup branch.
+
+    **Restore from a parent branch:**
+
+    ```bash
+    neon branches restore development ^parent
+    ```
+
+    This resets `development` to the latest data (HEAD) of its parent branch.
+
+    **Restore from another root branch at a specific LSN:**
+
+    ```bash shouldWrap
+    neon branches restore development production@0/12345
+    ```
+
+    For full CLI reference, see [branches restore](/reference/cli-branches).
+  </Tab>
+  <Tab title="API">
+    Use the restore endpoint:
+
+    ```bash
+    POST /projects/{project_id}/branches/{branch_id_to_restore}/restore
+    ```
+
+    **Restore a branch to its own history:**
+
+    ```bash shouldWrap
+    curl --request POST \
+         --url https://console.neon.tech/api/v2/projects/{project_id}/branches/{branch_id}/restore \
+         --header 'Accept: application/json' \
+         --header "Authorization: Bearer $NEON_API_KEY" \
+         --header 'Content-Type: application/json' \
+         --data '{
+           "source_branch_id": "{branch_id}",
+           "source_timestamp": "2024-02-27T00:00:00Z",
+           "preserve_under_name": "backup-before-restore"
+         }' | jq
+    ```
+
+    **Restore from another branch at a specific timestamp:**
+
+    ```bash shouldWrap
+    curl --request POST \
+         --url https://console.neon.tech/api/v2/projects/{project_id}/branches/{target_branch_id}/restore \
+         --header 'Accept: application/json' \
+         --header "Authorization: Bearer $NEON_API_KEY" \
+         --header 'Content-Type: application/json' \
+         --data '{
+           "source_branch_id": "{source_branch_id}",
+           "source_timestamp": "2024-02-26T12:00:00Z"
+         }' | jq
+    ```
+
+    Key request parameters:
+
+    | Parameter | Required | Description |
+    |-----------|----------|-------------|
+    | `source_branch_id` | Yes | ID of the branch to restore from. Use the target branch's own ID to restore from its own history. |
+    | `source_timestamp` | No | RFC 3339 timestamp. Omit to restore from HEAD. |
+    | `source_lsn` | No | Log Sequence Number. Alternative to `source_timestamp`. |
+    | `preserve_under_name` | Conditional | Required when restoring a branch to its own history. Names the backup branch. |
+  </Tab>
+</Tabs>
+
+## Using Time Travel Assist before restoring
+
+Before committing to a restore, you can use [Time Travel Assist](/features/instant-restore) to connect to a specific point in your restore window and run read-only SQL queries. This lets you verify the exact moment to restore to and confirm that the data you need is present before overwriting the branch.
+
+## Rolling back a restore
+
+If a restore produces unexpected results, you can roll it back by running another instant restore and selecting the backup branch as the source. The backup is not a parent branch, so you must explicitly select it as the source in the **From another branch** tab.
+
+<Warning>
+Backup branches created when restoring a root branch from another branch cannot be deleted. If you need to free up storage for a backup branch you cannot delete, connect to it and drop the databases or tables you no longer need — but make sure you are connected to the correct branch before doing so.
+</Warning>
+
+## Billing
+
+- **Backup branches** created during a restore add to your branch count and incur storage costs, but have no compute attached so they do not affect compute costs.
+- **Time Travel Assist** queries carry minimal cost. See [billing considerations](/features/instant-restore) for details.
+- The restore operation itself has no additional charge beyond the storage used for retained WAL history within your restore window.

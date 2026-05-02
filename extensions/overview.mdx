@@ -1,0 +1,216 @@
+---
+title: "Postgres extensions available on Neon"
+description: "Browse all Postgres extensions supported on Neon, learn how to install and update them, and find the right extension for your use case."
+---
+
+Neon supports a wide range of Postgres extensions — from vector search and geospatial data to full-text search, job scheduling, and cryptography. You can install most extensions with a single SQL statement, and Neon keeps extension versions up to date as new releases become available.
+
+## How to enable an extension
+
+Most extensions can be installed with the standard `CREATE EXTENSION` statement. Run it from the [Neon SQL Editor](https://console.neon.tech) or any connected Postgres client such as `psql`.
+
+```sql
+CREATE EXTENSION <extension_name>;
+```
+
+A few extensions have installation notes — for example, `pgvector` uses the name `vector`, and `uuid-ossp` requires double quotes around the name. See the details for each extension below or in the per-extension guides.
+
+<Note>
+Some extensions require a preloaded shared library and additional setup before you run `CREATE EXTENSION`. Notable examples include `pg_cron` (requires setting `cron.database_name` via the API) and `pg_repack` (available on paid plans, requires a support ticket). Check the notes column in the extension table or the dedicated guide for any extension you plan to use.
+</Note>
+
+## How to check available extensions
+
+To see all extensions available on your current Postgres version, run:
+
+```sql
+SELECT name, default_version, comment
+FROM pg_available_extensions
+ORDER BY name;
+```
+
+To check which extensions are already installed in your database, query `pg_extension`:
+
+```sql
+SELECT extname, extversion FROM pg_extension;
+```
+
+## How to update an extension
+
+When Neon releases a new extension version, you can update an installed extension using `ALTER EXTENSION`:
+
+```sql
+ALTER EXTENSION <extension_name> UPDATE TO '<new_version>';
+```
+
+For example, to update `pgvector` to version 0.8.0:
+
+```sql
+ALTER EXTENSION vector UPDATE TO '0.8.0';
+```
+
+<Note>
+A compute restart is required before a newly released extension version becomes available for installation or update. Computes that use [scale to zero](/features/scale-to-zero) restart automatically when idle. If your compute is always active, you may need to trigger a manual restart via the [Neon API](https://api-docs.neon.tech/reference/restartprojectendpoint).
+</Note>
+
+## Extensions by category
+
+The table below lists supported extensions grouped by category. Extension versions may differ by Postgres version. A dash (`-`) means the extension is not yet supported for that version.
+
+### Vector and ML
+
+| Extension | Description |
+| --------- | ----------- |
+| [pgvector](/extensions/pgvector) | Store vector embeddings and run similarity searches (L2, cosine, inner product, L1, Hamming, Jaccard). Install with `CREATE EXTENSION vector;` |
+| [pg_tiktoken](https://github.com/kelvich/pg_tiktoken) | Count tokens using OpenAI's tiktoken tokenizer from SQL. |
+| [pgrag](https://github.com/neondatabase/pgrag) | Experimental RAG pipeline extension for embedding generation and reranking. Requires `SET neon.allow_unstable_extensions='true';` before installing. |
+| [cube](/extensions/overview) | Multidimensional cube data type, often used as a dependency for `earthdistance`. |
+
+### Geospatial
+
+| Extension | Description |
+| --------- | ----------- |
+| [postgis](/extensions/postgis) | Full geospatial support — geometry/geography types, spatial functions, and GiST indexing. |
+| [postgis_raster](https://postgis.net/docs/RT_reference.html) | Raster data support for PostGIS. |
+| [postgis_topology](https://www.postgis.net/docs/Topology.html) | Topology data model for PostGIS. |
+| [postgis_sfcgal](/extensions/postgis) | Advanced 3D geometry operations via SFCGAL. |
+| [address_standardizer](https://postgis.net/docs/Extras.html) | Normalize postal addresses into components. |
+| [address_standardizer_data_us](https://postgis.net/docs/Extras.html) | USPS address standardizer reference data. |
+| [pgrouting](/extensions/postgis) | Geospatial routing on top of PostGIS. Requires PostGIS to be installed first. |
+| [h3](https://github.com/zachasme/h3-pg) | H3 hierarchical hexagonal geospatial indexing. Install both `h3` and `h3_postgis`. |
+| [earthdistance](/extensions/overview) | Calculate great-circle distances. Requires `cube` to be installed first. |
+
+### Scheduling
+
+| Extension | Description |
+| --------- | ----------- |
+| [pg_cron](/extensions/pg-cron) | Cron-based job scheduler that runs SQL on a schedule. Requires enabling `cron.database_name` via the API before installing. |
+| [pg_partman](https://github.com/pgpartman/pg_partman) | Background worker for automated time- and serial-based table partitioning. |
+
+### Search and text
+
+| Extension | Description |
+| --------- | ----------- |
+| [pg_trgm](/extensions/overview) | Trigram-based similarity search and fuzzy string matching. |
+| [fuzzystrmatch](/extensions/overview) | Soundex, Levenshtein, and Metaphone functions for fuzzy string comparison. |
+| [unaccent](/extensions/overview) | Text search dictionary that strips accents from lexemes. |
+| [dict_int](/extensions/overview) | Full-text search dictionary for indexing integers. |
+
+### Data types and identifiers
+
+| Extension | Description |
+| --------- | ----------- |
+| [hstore](/extensions/overview) | Key-value store as a Postgres data type. |
+| [ltree](/extensions/overview) | Labels stored in a tree hierarchy for path-based queries. |
+| [citext](/extensions/overview) | Case-insensitive character string type. |
+| [uuid-ossp](/extensions/overview) | UUID generation functions. Install with `CREATE EXTENSION "uuid-ossp";` (double quotes required). |
+| [pg_uuidv7](/extensions/overview) | Generate time-ordered UUID v7 values. |
+| [pgx_ulid](https://github.com/pksunkara/pgx_ulid) | ULID generation. Install with `CREATE EXTENSION ulid;` on PG14–16 or `CREATE EXTENSION pgx_ulid;` on PG17–18. |
+| [semver](https://pgxn.org/dist/semver) | Semantic version number type. |
+| [ip4r](https://github.com/RhodiumToad/ip4r) | IPv4 and IPv6 range types with indexing support. |
+| [isn](https://www.postgresql.org/docs/current/isn.html) | International Standard Number types (ISBN, ISSN, EAN, UPC). |
+| [seg](https://www.postgresql.org/docs/current/seg.html) | Floating-point interval type for scientific measurements. |
+| [cube](/extensions/overview) | N-dimensional cube data type. |
+
+### Indexing and performance
+
+| Extension | Description |
+| --------- | ----------- |
+| [btree_gin](/extensions/overview) | GIN index support for common scalar data types. |
+| [btree_gist](/extensions/overview) | GiST index support for common scalar data types; also supports exclusion constraints. |
+| [bloom](https://www.postgresql.org/docs/current/bloom.html) | Bloom filter index access method for multi-column equality searches. |
+| [intarray](/extensions/overview) | Functions and operators for arrays of integers, including GIN and GiST index support. |
+| [hypopg](https://hypopg.readthedocs.io/) | Hypothetical indexes to evaluate query plans before creating real indexes. |
+| [pg_prewarm](/extensions/overview) | Preload relation data into the Postgres buffer cache on demand. |
+| [pg_hint_plan](https://github.com/ossc-db/pg_hint_plan) | Control query planner behavior via SQL comment hints. |
+| [pg_ivm](https://github.com/sraoss/pg_ivm) | Incrementally maintainable materialized views. |
+| [rum](https://github.com/postgrespro/rum) | RUM access method: like GIN but with position information and ordering. Available on PG14–16. |
+| [online_advisor](/extensions/overview) | Online index advisor for Postgres 17. |
+
+### Cryptography and security
+
+| Extension | Description |
+| --------- | ----------- |
+| [pgcrypto](/extensions/overview) | Cryptographic functions including hashing, symmetric, and public-key encryption. |
+| [pgjwt](https://github.com/michelp/pgjwt) | JSON Web Token (JWT) creation and verification. |
+| [pg_session_jwt](/extensions/overview) | JWT session management for the Neon Data API. |
+| [anon](/extensions/overview) | Data anonymization and masking for Postgres. |
+
+### Analytics and time-series
+
+| Extension | Description |
+| --------- | ----------- |
+| [timescaledb](/extensions/overview) | Time-series data storage and queries. Only Apache-2 licensed features are supported; compression is not supported. |
+| [hll](https://github.com/citusdata/postgresql-hll) | HyperLogLog data structure for approximate distinct count queries. |
+| [pg_roaringbitmap](https://github.com/ChenHuajun/pg_roaringbitmap) | Roaring bitmap type for compressed bitset operations. Install with `CREATE EXTENSION roaringbitmap;` |
+| [tablefunc](/extensions/overview) | Functions for producing result sets as tables, including `crosstab`. |
+
+### Foreign data and connectivity
+
+| Extension | Description |
+| --------- | ----------- |
+| [postgres_fdw](/extensions/overview) | Foreign-data wrapper for accessing remote Postgres databases. |
+| [dblink](/extensions/overview) | Execute queries in remote Postgres databases from within a transaction. |
+| [wal2json](/extensions/overview) | JSON output plugin for logical replication. Does not require `CREATE EXTENSION`; enabled via logical replication setup. |
+
+### Procedural languages
+
+| Extension | Description |
+| --------- | ----------- |
+| [plpgsql](https://www.postgresql.org/docs/current/plpgsql.html) | PL/pgSQL procedural language. Pre-installed with Postgres. |
+| [plpgsql_check](https://pgxn.org/dist/plpgsql_check/) | Static analysis and validation for PL/pgSQL functions. |
+| [plv8](/extensions/overview) | **Deprecated.** JavaScript procedural language. New installs are blocked. |
+| [plcoffee](https://coffeescript.org/) | CoffeeScript procedural language. Available on PG14–16. |
+| [plls](https://livescript.net/) | LiveScript procedural language. Available on PG14–16. |
+
+### Utilities and maintenance
+
+| Extension | Description |
+| --------- | ----------- |
+| [pg_stat_statements](/extensions/overview) | Track execution statistics for all SQL statements. |
+| [pg_repack](/extensions/overview) | Reclaim storage and reorder table data without a full table lock. Available on paid plans; requires a support ticket to enable. |
+| [pgrowlocks](/extensions/overview) | Row-level lock information for a given table. |
+| [pgstattuple](/extensions/overview) | Tuple-level statistics for estimating table and index bloat. |
+| [pg_jsonschema](https://github.com/supabase/pg_jsonschema) | JSON Schema validation for `json` and `jsonb` columns. Available on PG14–16. |
+| [pg_graphql](/extensions/overview) | GraphQL interface over your Postgres schema. |
+| [pg_partman](https://github.com/pgpartman/pg_partman) | Automated table partitioning management. |
+| [pgtap](https://pgtap.org/) | Unit testing framework for Postgres. |
+| [tcn](https://www.postgresql.org/docs/current/tcn.html) | Triggered change notification for listening clients. |
+| [lo](https://www.postgresql.org/docs/current/lo.html) | Large object management. |
+| [xml2](/extensions/overview) | XPath querying and XSLT processing for XML data. |
+| [intagg](https://www.postgresql.org/docs/current/intagg.html) | Integer aggregator and enumerator (obsolete, but available). |
+| [tsm_system_rows](https://www.postgresql.org/docs/current/tsm-system-rows.html) | `TABLESAMPLE` method that accepts a row count as a limit. |
+| [tsm_system_time](https://www.postgresql.org/docs/current/tsm-system-time.html) | `TABLESAMPLE` method that accepts a time limit in milliseconds. |
+| [prefix](https://github.com/dimitri/prefix) | Prefix range operator for telephone number routing queries. |
+| [rdkit](https://github.com/rdkit/rdkit) | Cheminformatics functions and data types for molecular data. |
+| [moddatetime (spi)](https://www.postgresql.org/docs/current/contrib-spi.html) | Trigger to update a modification timestamp column automatically. |
+| [insert_username (spi)](https://www.postgresql.org/docs/current/contrib-spi.html) | Trigger to record the user who last modified a row. |
+| [autoinc (spi)](https://www.postgresql.org/docs/current/contrib-spi.html) | Auto-increment a field using a sequence. |
+| [refint (spi)](https://www.postgresql.org/docs/current/contrib-spi.html) | Referential integrity using triggers. |
+
+### Neon-specific
+
+| Extension | Description |
+| --------- | ----------- |
+| [neon](/extensions/overview) | Internal Neon extension. Pre-installed and always available. |
+| [neon_utils](/extensions/overview) | Utility functions for Neon-specific features. |
+
+## Experimental extensions
+
+Neon occasionally adds extensions that are in early development or undergoing validation. These are not recommended for production use.
+
+To install an experimental extension, set the session variable first:
+
+```sql
+SET neon.allow_unstable_extensions = 'true';
+```
+
+Current experimental extensions include `pgrag` and `pg_mooncake`. Use them in a separate project, not in your production database.
+
+## Request an extension
+
+If the extension you need is not listed, you can request it. Neon reviews requests regularly and prioritizes them based on demand and compatibility. Open a request via the Neon Console or reach out on [Discord](https://discord.gg/92vNTzKDGp).
+
+## Extension support
+
+Neon makes third-party extensions available but does not maintain upstream extension code. If you find a bug in an extension, report it to the extension's upstream maintainers. Once a fix is released, Neon can update to the new version. You can request a version update by opening a [support ticket](https://console.neon.tech/app/projects?modal=support).

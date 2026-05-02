@@ -1,0 +1,94 @@
+---
+title: "Neon Data API: HTTP access to your database"
+description: "Query your Neon Postgres database over HTTP from browsers, edge runtimes, and serverless functions without a persistent connection."
+keywords: ["data api", "rest", "http", "postgrest", "row level security", "jwt", "serverless", "edge"]
+---
+
+The Neon Data API gives you a standard HTTP interface to your Postgres database. Instead of maintaining a persistent TCP connection, you send ordinary HTTP requests and get JSON back. This makes it practical to query Postgres directly from web browsers, Cloudflare Workers, Vercel Edge, or any environment where native Postgres drivers don't work well.
+
+The API is fully compatible with [PostgREST](https://postgrest.org), so you can use it with any HTTP client, cURL, or the Neon TypeScript SDK.
+
+## Key features
+
+**Browser and edge compatibility**
+
+Standard Postgres drivers require persistent TCP connections, which don't work in browsers or most serverless edge runtimes. The Data API uses plain HTTP, so it works anywhere.
+
+**Connectionless scalability**
+
+Because each query is a short-lived HTTP request, you don't need to manage connection pools. The API handles thousands of concurrent users without exhausting database connections.
+
+**Secure by default**
+
+Every request requires a valid JWT token. The API validates the token, then runs your query as the `authenticated` Postgres role. Your [Row-Level Security (RLS)](/data-api/access-control) policies apply automatically, so users only see rows they're permitted to see.
+
+**Works with any auth provider**
+
+You can use [Neon Auth](/auth/overview) for integrated, branch-aware authentication, or bring your own provider: Auth0, Clerk, Firebase, or any service that issues JWTs.
+
+**CI/CD friendly**
+
+The Data API is configured at the branch level, so each branch has its own API endpoint. You can test your queries in preview environments without touching production.
+
+## Quickstart example
+
+Once you've enabled the Data API and created a table, you can query it with the Neon TypeScript SDK:
+
+```typescript
+import { createClient } from '@neondatabase/neon-js';
+
+const client = createClient({
+  auth: { url: process.env.NEON_AUTH_URL! },
+  dataApi: { url: process.env.NEON_DATA_API_URL! },
+});
+
+// Fetch all published posts, newest first
+const { data, error } = await client
+  .from('posts')
+  .select('*')
+  .eq('is_published', true)
+  .order('created_at', { ascending: false });
+```
+
+Or with a direct HTTP request:
+
+```bash
+curl -X GET 'https://your-data-api-endpoint/rest/v1/posts?is_published=eq.true&order=created_at.desc' \
+  -H 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  -H 'Content-Type: application/json'
+```
+
+## Common query operations
+
+| Operation  | SDK method                                                       |
+| ---------- | ---------------------------------------------------------------- |
+| Select     | `client.from('table').select('*')`                               |
+| Insert     | `client.from('table').insert({ column: 'value' })`               |
+| Update     | `client.from('table').update({ column: 'value' }).eq('id', 1)`   |
+| Delete     | `client.from('table').delete().eq('id', 1)`                      |
+| Call a function | `client.rpc('function_name', { param: 'value' })`           |
+
+## Authentication requirements
+
+All Data API requests must include a valid Bearer token in the `Authorization` header. The token must contain a `sub` claim with the user's unique identifier. RLS policies use this claim to identify the current user.
+
+<Warning>
+  Requests without a valid token run as the `anonymous` Postgres role, which has no permissions by default. If you want to expose public data without authentication, you must explicitly grant SELECT access to the `anonymous` role.
+</Warning>
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Enable the Data API" icon="rocket" href="https://neon.tech/docs/data-api/get-started">
+    Step-by-step guide to enabling the Data API, creating a table with RLS, and running your first query.
+  </Card>
+  <Card title="Access control" icon="lock" href="/data-api/access-control">
+    Configure table privileges and RLS policies to control what each user can access.
+  </Card>
+  <Card title="Neon Auth" icon="user" href="/auth/overview">
+    Add managed authentication that integrates natively with the Data API.
+  </Card>
+  <Card title="TypeScript SDK" icon="code" href="https://neon.tech/docs/reference/javascript-sdk">
+    Complete reference for all SDK query methods, filters, and modifiers.
+  </Card>
+</CardGroup>

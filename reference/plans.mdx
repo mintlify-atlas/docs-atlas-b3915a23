@@ -1,0 +1,222 @@
+---
+title: "Neon plans and pricing tiers"
+description: "Compare Neon's Free, Launch, and Scale plans: included resources, compute hours, storage, pricing rates, and how to upgrade or downgrade your plan."
+---
+
+Neon offers three main plans to match different stages of development and production needs. You start for free and pay only for what you use as your workload grows. This page describes each plan, the resources included, and how billing works for each usage dimension.
+
+<Note>
+Invoices under $0.50 are not collected. On the Free plan, compute suspends when plan limits are reached. Upgrade to a paid plan to continue.
+</Note>
+
+## Plan comparison
+
+| Feature | Free | Launch | Scale |
+|---|---|---|---|
+| **Price** | $0/month | Pay for what you use | Pay for what you use |
+| **Best for** | Prototypes, side projects, small teams | Startups and growing teams | Production workloads and larger companies |
+| **Projects** | 100 | 100 | 1,000 (soft limit) |
+| **Branches per project** | 10 | 10 | 25 |
+| **Extra branches** | Not available | $1.50/branch-month | $1.50/branch-month |
+| **Compute** | 100 CU-hours/project/month | $0.106/CU-hour | $0.222/CU-hour |
+| **Autoscaling** | Up to 2 CU (8 GB RAM) | Up to 16 CU (64 GB RAM) | Up to 16 CU autoscaling; fixed sizes up to 56 CU |
+| **Scale to zero** | After 5 min (cannot disable) | After 5 min (can disable) | Configurable: 1 min to always on |
+| **Storage** | 0.5 GB/project | $0.35/GB-month | $0.35/GB-month |
+| **Public network transfer** | 5 GB/month | 100 GB included, then $0.10/GB | 100 GB included, then $0.10/GB |
+| **Private network transfer** | Not available | Not available | $0.01/GB |
+| **Restore window** | 6 hours (up to 1 GB-month) | Up to 7 days | Up to 30 days |
+| **Instant restore storage** | Free (within limits) | $0.20/GB-month | $0.20/GB-month |
+| **Manual snapshots** | 1 | 10 | 10 |
+| **Monitoring history** | 1 day | 3 days | 14 days |
+| **Metrics/logs export** | No | No | Yes (Datadog, OTel) |
+| **Auth (Neon Auth MAU)** | Up to 60,000 | Up to 1M | Up to 1M |
+| **Protected branches** | No | Yes | Yes |
+| **IP Allow** | No | No | Yes |
+| **Compliance** | No | No | SOC 2, ISO 27001, GDPR, HIPAA (add-on) |
+| **Uptime SLA** | No | No | Yes |
+| **Support** | Community | Billing support | Standard, Business, or Production |
+
+## Free plan
+
+The Free plan is designed for prototypes, side projects, and small teams. It includes everything you need to build and test an application at no cost.
+
+<Note>
+The Free plan always suspends inactive computes after 5 minutes. You cannot disable Scale to Zero on the Free plan.
+</Note>
+
+**What's included:**
+
+- 100 projects
+- 10 branches per project
+- 100 CU-hours per project per month (enough to run a 0.25 CU compute for ~400 hours/month)
+- 0.5 GB storage per project
+- 5 GB public network transfer per month
+- 6-hour restore window (up to 1 GB-month of change history)
+- 1 manual snapshot
+- Autoscaling up to 2 CU (8 GB RAM)
+- Up to 60,000 monthly active users for Neon Auth
+- 1 day of monitoring metrics history
+
+When compute or transfer limits are reached, your compute suspends until the next billing period or until you upgrade.
+
+## Launch plan
+
+The Launch plan is for startups and growing teams that need more resources, production-ready features, and flexibility. You pay only for what you use.
+
+**Pricing:**
+
+- Compute: **$0.106/CU-hour**
+- Storage: **$0.35/GB-month**
+- Instant restore storage: **$0.20/GB-month**
+- Extra branches: **$1.50/branch-month** (prorated hourly)
+- Public network transfer: 100 GB included, then **$0.10/GB**
+
+**What's included:**
+
+- 100 projects
+- 10 branches per project (up to 5,000 with extras)
+- Autoscaling up to 16 CU (64 GB RAM)
+- Scale to Zero (can be disabled for always-on computes)
+- Up to 7-day restore window
+- 10 manual snapshots
+- Protected branches
+- Up to 1M monthly active users for Neon Auth
+- 3 days of monitoring metrics history
+- Billing support
+
+## Scale plan
+
+The Scale plan is for production-grade workloads requiring higher limits, advanced security, compliance certifications, and SLAs. You pay only for what you use.
+
+<Note>
+The higher per-CU-hour rate on Scale reflects included compliance certifications, security features, and uptime SLAs that are not available on Launch.
+</Note>
+
+**Pricing:**
+
+- Compute: **$0.222/CU-hour**
+- Storage: **$0.35/GB-month**
+- Instant restore storage: **$0.20/GB-month**
+- Extra branches: **$1.50/branch-month** (prorated hourly)
+- Public network transfer: 100 GB included, then **$0.10/GB**
+- Private network transfer: **$0.01/GB**
+
+**What's included:**
+
+- 1,000 projects (soft limit; request more via support)
+- 25 branches per project (up to 5,000 with extras)
+- Autoscaling up to 16 CU; fixed computes up to 56 CU (224 GB RAM)
+- Scale to Zero fully configurable (1 minute to always on)
+- Up to 30-day restore window
+- 10 manual snapshots
+- Metrics and Postgres log export (Datadog, OpenTelemetry)
+- Protected branches, IP Allow, Private Networking (AWS PrivateLink)
+- SOC 2, SOC 3, ISO 27001, ISO 27701, GDPR, CCPA compliance
+- HIPAA compliance (available as an add-on)
+- Uptime SLA
+- Up to 1M monthly active users for Neon Auth
+- 14 days of monitoring metrics history
+- Standard support (Business and Production support available for additional fee)
+
+## Usage-based cost examples
+
+The following examples illustrate what monthly bills might look like at different usage levels. Your actual costs depend on workload patterns and configuration.
+
+### Launch plan examples
+
+**Light usage:**
+- Compute: 10 CU-hours (1 CU × 10 hours) — **$1.06**
+- Root branch storage: 2 GB — **$0.70**
+- Child branch storage: 1 GB — **$0.35**
+- Instant restore history: 1 GB — **$0.20**
+- **Total: ~$2.31**
+
+**Medium usage:**
+- Compute: 120 CU-hours (1 CU × 120 hours) — **$12.72**
+- Root branch storage: 20 GB — **$7.00**
+- Child branch storage: 5 GB — **$1.75**
+- Instant restore history: 10 GB — **$2.00**
+- **Total: ~$23.47**
+
+**Higher usage:**
+- Compute: 250 CU-hours (2 CU × 125 hours) — **$26.50**
+- Root branch storage: 40 GB — **$14.00**
+- Child branch storage: 10 GB — **$3.50**
+- Instant restore history: 20 GB — **$4.00**
+- **Total: ~$48.00**
+
+### Scale plan examples
+
+**Example 1:**
+- Compute: 1,700 CU-hours (4 CU × ~425 hours) — **$377.40**
+- Root branch storage: 100 GB — **$35.00**
+- Child branch storage: 25 GB — **$8.75**
+- Instant restore history: 50 GB — **$10.00**
+- **Total: ~$431.15**
+
+**Example 2:**
+- Compute: 2,600 CU-hours (8 CU × ~325 hours) — **$577.20**
+- Root branch storage: 150 GB — **$52.50**
+- Child branch storage: 40 GB — **$14.00**
+- Instant restore history: 75 GB — **$15.00**
+- **Total: ~$658.70**
+
+## Key billing concepts
+
+### Compute hours
+
+Compute usage is measured in CU-hours: `compute size (CU) × hours actively running`. Scale to Zero suspends idle computes, so you only pay for active time.
+
+### Storage
+
+- **Root branches:** billed on actual logical data size.
+- **Child branches:** billed on the minimum of accumulated changes since creation or the logical data size. You never pay more than your actual data size.
+- Storage is metered hourly and billed per GB-month.
+
+### Instant restore storage
+
+Neon retains WAL history to support point-in-time restore. This history is stored only for root branches. You are billed based on how much change history you retain, not the number of restores you perform. Shorten your restore window to reduce this cost.
+
+### Snapshots
+
+Snapshots capture a complete point-in-time state of a root branch. Snapshots are free during the Beta period. Starting May 1, 2026, snapshot storage is billed at **$0.09/GB-month**.
+
+### Extra branches
+
+Branches beyond your plan allowance are billed at $1.50/branch-month, prorated hourly (~$0.002/hour).
+
+## Upgrading or downgrading
+
+To change your plan:
+
+<Steps>
+  <Step title="Go to billing settings">
+    In the Neon Console, open your organization settings and select **Billing**.
+  </Step>
+  <Step title="Select a new plan">
+    Choose the plan you want to move to. Upgrades take effect immediately. Downgrades take effect at the start of the next billing period.
+  </Step>
+  <Step title="Confirm the change">
+    Review the pricing and confirm. You will see a prorated charge or credit on your next invoice for plan changes mid-month.
+  </Step>
+</Steps>
+
+<Warning>
+When downgrading to a lower plan, ensure your usage falls within the limits of that plan before the change takes effect. For example, if you have more than 10 branches per project on Launch and try to move to the Free plan, excess branches will need to be deleted.
+</Warning>
+
+## Agent plan
+
+For AI agent platforms that provision thousands of databases, Neon offers an Agent Plan with custom resource limits and credits that you can pass to your users as part of a free tier. See [Agent Plan](/reference/plans) for details.
+
+## Cost optimization
+
+A few practices that reduce your Neon costs:
+
+- Enable Scale to Zero so idle computes don't accumulate CU-hours.
+- Set a maximum autoscaling size to cap peak compute usage.
+- Delete unused branches to reduce storage costs.
+- Shorten your restore window if you don't need the full history depth.
+- Set time-to-live policies on development and preview branches.
+
+See the [cost optimization guide](/manage/billing) for detailed strategies.

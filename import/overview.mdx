@@ -1,0 +1,55 @@
+---
+title: "Migrate your database to Neon"
+description: "Pick the right path to migrate to Neon. Compare pg_dump, pgcopydb, logical replication, and the Import Data Assistant by size and downtime tolerance."
+keywords: ["migration", "pg_dump", "pgcopydb", "logical replication", "import data assistant", "postgres migration"]
+---
+
+Moving your database to Neon starts with picking the right approach. The best method depends on your database size, how much downtime you can accept, and where you're migrating from. This page lays out your options so you can choose with confidence.
+
+## Choosing a migration method
+
+| Method | Best for | Database size | Downtime | Skill level |
+|---|---|---|---|---|
+| [Import Data Assistant](/import/overview) | Quick Postgres migrations | Under 10 GB | Minimal | Low |
+| [pg\_dump / pg\_restore](/import/from-postgres) | Standard Postgres migrations | Any size | Required | Medium |
+| [pgcopydb](/import/overview) | Large Postgres databases | 10 GB+ | Required | Medium |
+| [Logical replication](/import/overview) | Production workloads, near-zero downtime | Any size | Near-zero | High |
+| [AWS DMS](/import/overview) | Multi-source or custom transformations | Any size | Minimal | High |
+
+<Tip>
+If you can't afford downtime, use [logical replication](/import/overview). For databases under 10 GB with some downtime flexibility, the [Import Data Assistant](/import/overview) is the easiest option — just paste a connection string and go. For larger databases where downtime is acceptable, choose [pg\_dump/pg\_restore](/import/from-postgres) for simplicity or [pgcopydb](/import/overview) for speed.
+</Tip>
+
+## Migration guides
+
+<CardGroup cols={2}>
+  <Card title="Import Data Assistant" icon="wand-magic-sparkles" href="/import/overview">
+    Automated import for databases under 10 GB. Paste a connection string and Neon handles the rest.
+  </Card>
+  <Card title="Migrate from any Postgres" icon="database" href="/import/from-postgres">
+    Use pg\_dump and pg\_restore to migrate from any Postgres source. Works for any database size.
+  </Card>
+  <Card title="Migrate from Amazon RDS" icon="aws" href="/import/from-rds">
+    Step-by-step guide for migrating from RDS Postgres, including a logical replication path for minimal downtime.
+  </Card>
+  <Card title="Migrate from Supabase" icon="bolt" href="/import/from-supabase">
+    Export from Supabase and import to Neon with notes on schema ownership and auth considerations.
+  </Card>
+</CardGroup>
+
+## Other migration options
+
+- **[pgcopydb](/import/overview)** — Parallel migration tool built on pg\_dump/pg\_restore. Best for large databases where speed matters.
+- **[AWS DMS](/import/overview)** — AWS-managed service supporting Postgres, MySQL, Oracle, and SQL Server sources.
+- **[Migrate from Heroku](/import/overview)**, **[Render](/import/overview)**, **[Azure](/import/overview)**, **[Digital Ocean](/import/overview)** — Provider-specific step-by-step guides.
+- **[Migrate from MySQL](/import/overview)**, **[MSSQL](/import/overview)**, **[SQLite](/import/overview)**, **[Firebase](/import/overview)** — Guides for non-Postgres sources using pgloader and other tools.
+
+## Moving between Neon projects or regions
+
+To move a database to a different Neon region, or between Neon projects, see [Region migration](/import/overview). For a direct Neon-to-Neon copy using a piped `pg_dump | pg_restore`, see [Migrate from another Neon project](/import/overview).
+
+## Other imports
+
+- [Import data from CSV](/import/overview) — Load data from flat files using psql.
+- [Import sample data](/import/overview) — Try Neon with ready-made datasets.
+- [Migrate schema only](/import/overview) — Copy structure without data.

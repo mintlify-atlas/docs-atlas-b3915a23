@@ -1,0 +1,86 @@
+---
+title: "Database backups and restore in Neon"
+description: "Back up and restore Neon databases using instant restore (PITR) or pg_dump. Configure the restore window and automate backups to S3 with GitHub Actions."
+keywords: ["neon backups", "pg_dump", "instant restore", "point-in-time restore", "PITR", "restore window", "automated backups", "S3"]
+---
+
+Neon supports multiple backup strategies, which you can use separately or in combination depending on your recovery objectives. The primary options are Neon's built-in instant restore capability and traditional `pg_dump`-based backups.
+
+## Instant restore
+
+Neon's instant restore feature — also called point-in-time restore (PITR) — automatically retains a history of all changes to your database. You can restore to any specific moment within your restore window without setting up separate backup automation.
+
+The restore window ranges from 6 hours (Free plan) up to 30 days (Scale plan), depending on your Neon plan:
+
+| Plan | Restore window | Cost |
+|------|----------------|------|
+| Free | Up to 6 hours (capped at 1 GB-month of changes) | No charge |
+| Launch | Up to 7 days | $0.20/GB-month |
+| Scale | Up to 30 days | $0.20/GB-month |
+
+<Note>
+Increasing your restore window increases instant restore storage costs, as Neon retains more change history. The window applies to all branches in the project.
+</Note>
+
+### Configure the restore window
+
+<Steps>
+  <Step title="Open project settings">
+    In the Neon Console, select your project and go to **Settings** > **Instant restore**.
+  </Step>
+  <Step title="Set the window">
+    Use the slider to select how far back you want to be able to restore.
+  </Step>
+  <Step title="Save">
+    Click **Save**.
+  </Step>
+</Steps>
+
+### Restore a branch
+
+Once the restore window is configured, you can restore a branch to any point within it. Options include:
+
+- Restore a branch to a specific point in its own history
+- Restore a branch to the head of another branch
+- Restore a branch to a point in another branch's history
+
+For full restore instructions, see [Instant restore](/features/instant-restore).
+
+## Backups with pg_dump
+
+For business continuity, disaster recovery, or compliance requirements, you can use standard Postgres tools to create portable backup files. Neon supports `pg_dump` and `pg_restore`.
+
+To create a backup:
+
+```bash shouldWrap
+pg_dump "postgresql://[user]:[password]@[neon_hostname]/[dbname]?sslmode=require" -Fc -f backup.dump
+```
+
+To restore from a backup:
+
+```bash shouldWrap
+pg_restore -d "postgresql://[user]:[password]@[neon_hostname]/[dbname]?sslmode=require" backup.dump
+```
+
+For a full walkthrough, see [Backups with pg_dump](/manage/backups).
+
+## Automated pg_dump backups
+
+If you need recurring `pg_dump` backups stored in remote storage, Neon provides a two-part guide that walks you through:
+
+1. **[Create an S3 bucket to store Postgres backups](/manage/backups)** — configure AWS S3 and IAM permissions.
+2. **[Set up a GitHub Action to perform nightly Postgres backups](/manage/backups)** — automate `pg_dump` on a schedule and configure retention.
+
+<Tip>
+For most recovery needs, instant restore is simpler to set up and requires no external infrastructure. Use `pg_dump` when you need backups that are portable, stored externally, or subject to specific retention policies.
+</Tip>
+
+## Choosing a strategy
+
+| Need | Recommended approach |
+|------|----------------------|
+| Fast recovery from accidental changes | Instant restore |
+| Time travel queries for data investigation | Instant restore |
+| Portable backup files for compliance | `pg_dump` |
+| Backups stored in external storage (S3) | Automated `pg_dump` |
+| Long-term retention beyond 30 days | `pg_dump` to external storage |

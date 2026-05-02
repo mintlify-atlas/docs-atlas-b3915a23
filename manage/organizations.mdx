@@ -1,0 +1,81 @@
+---
+title: "Neon organizations and team management"
+description: "Manage Neon organizations, invite team members, assign roles, and understand permissions. Organizations provide a central space for projects and billing."
+keywords: ["neon organizations", "team management", "invite members", "admin role", "member role", "org billing", "permissions"]
+---
+
+In Neon, all projects live within organizations. When you sign up, Neon automatically creates a free organization for your first project. Organizations provide a central place to manage projects, collaborate with teammates, and handle billing. You can start inviting teammates as soon as your organization is created.
+
+## User roles and permissions
+
+Organizations have two member roles:
+
+<Tabs>
+  <Tab title="Admin">
+    Admins have full control over the organization and all its projects. Admin capabilities include:
+
+    - Create, update, and delete any project in the organization
+    - Invite and remove members
+    - Change member roles
+    - Manage billing and plan settings
+    - Transfer projects between organizations
+    - Manage organization-level settings (IP Allow, protected branches, etc.)
+  </Tab>
+  <Tab title="Member">
+    Members have access to all organization projects but cannot change org-level settings. Member capabilities include:
+
+    - View and work with all projects in the organization
+    - Create new projects (within plan limits)
+    - Manage branches, databases, and roles within projects
+
+    Members cannot delete projects or modify org settings.
+  </Tab>
+</Tabs>
+
+For a complete breakdown of role permissions, see [User permissions](/manage/organizations).
+
+## Set up an organization
+
+<Steps>
+  <Step title="Create an organization">
+    You can create additional organizations at any time. To create one, see [Create an organization](/manage/organizations).
+
+    Your first organization is created automatically when you sign up.
+  </Step>
+  <Step title="Invite members">
+    Go to the **People** page within your organization and click **Invite member**. Enter the email address of the person you want to add.
+
+    For details, see [Invite members](/manage/organizations).
+  </Step>
+  <Step title="Assign roles">
+    When inviting a member, select whether they should be an **Admin** or **Member**. You can change roles at any time from the **People** page.
+  </Step>
+  <Step title="Transfer projects (optional)">
+    If you have existing personal projects, you can transfer them to your organization from the project's **Settings** > **Transfer** page.
+  </Step>
+</Steps>
+
+## Auto-provision members by email domain
+
+You can configure your organization to automatically add new users whose email matches a verified domain. When a user with a matching email signs up or logs in, they are added to the organization automatically.
+
+For setup instructions, see [Add members by domain](/manage/organizations).
+
+## Organization billing
+
+Paid plan billing is managed at the organization level. All charges for projects within an organization appear on a single invoice for that organization.
+
+To access billing for your organization:
+
+1. Navigate to the Neon Console.
+2. Select your organization from the breadcrumb menu at the top-left.
+3. Select **Billing** from the menu.
+
+For details on plans and costs, see [Neon plans, pricing, and billing](/manage/billing).
+
+## Current limitations
+
+- **Branch management**: All users can currently manage [protected branches](/manage/branches) regardless of their role. Granular permissions for this feature are not yet implemented.
+- **Permissions granularity**: The current role system may not meet all needs for fine-grained access control.
+
+If you have feedback on organizations, use the [Feedback](https://console.neon.tech/app/projects?modal=feedback) form in the Neon Console or the [feedback channel on Discord](https://discord.com/channels/1176467419317940276/1176788564890112042).

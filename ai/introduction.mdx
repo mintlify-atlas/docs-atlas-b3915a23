@@ -1,0 +1,84 @@
+---
+title: "Build AI apps with Neon and pgvector"
+description: "Neon is an AI-ready serverless Postgres platform with pgvector, HNSW indexes, an MCP server for AI agents, and integrations for LangChain and LlamaIndex."
+---
+
+Neon gives you a fully managed Postgres database that is ready for AI workloads out of the box. You get the `pgvector` extension for storing and querying vector embeddings, HNSW and IVFFlat indexes for fast approximate nearest-neighbor search, a Model Context Protocol (MCP) server that lets AI coding agents manage your database in natural language, and tested integrations with popular frameworks like LangChain and LlamaIndex. Whether you're building a RAG chatbot, a semantic search engine, or an autonomous agent that provisions its own database, Neon's serverless architecture scales with your workload and scales to zero when you don't need it.
+
+## Core capabilities
+
+<CardGroup cols={2}>
+  <Card title="Store and query embeddings" icon="database" href="/ai/pgvector">
+    Enable pgvector, create vector columns, run cosine and L2 similarity searches, and build HNSW or IVFFlat indexes for large datasets.
+  </Card>
+  <Card title="Neon MCP server" icon="server" href="/ai/mcp-server">
+    Connect Cursor, Claude Code, Windsurf, and other MCP clients to your Neon database and manage it with natural language.
+  </Card>
+  <Card title="AI agents and frameworks" icon="robot" href="/ai/ai-agents">
+    Use Neon with LangChain, LlamaIndex, LangGraph, and other agent frameworks. Install agent skills to give your assistant accurate Neon context.
+  </Card>
+  <Card title="Scale your AI app" icon="chart-line" href="https://neon.tech/docs/ai/ai-scale-with-neon">
+    Vertical scaling up to 56 CU (224 GB RAM), autoscaling, and read replicas for offloading vector similarity search workloads.
+  </Card>
+</CardGroup>
+
+## What is pgvector?
+
+`pgvector` is a Postgres extension that adds a native `vector` data type and distance-function operators to your database. Instead of running a separate vector store alongside Postgres, you keep your embeddings and relational data in one place. Neon supports `pgvector` on every plan with no additional configuration required.
+
+Key capabilities include:
+
+- **Exact and approximate nearest-neighbor search** — sequential scans for 100% recall on small datasets; HNSW or IVFFlat indexes for fast ANN search on large ones.
+- **Multiple distance metrics** — L2 (`<->`), inner product (`<#>`), cosine (`<=>`), L1 (`<+>`), Hamming, and Jaccard.
+- **Multiple vector types** — `vector` (up to 2,000 dimensions), `halfvec` (up to 4,000 dimensions), `bit` (up to 64,000 dimensions), and `sparsevec`.
+- **Full Postgres compatibility** — ACID compliance, JOINs, point-in-time recovery, and every other Postgres feature work alongside your vector columns.
+
+## AI concepts
+
+Embeddings are arrays of floating-point numbers that represent the features or semantic meaning of a piece of data. By computing the distance between two embeddings you can measure how similar they are. This is the foundation of vector similarity search and is used in information retrieval, recommendation systems, natural language processing, and anomaly detection.
+
+You generate embeddings with an LLM API — for example, OpenAI's `text-embedding-3-small` model produces 1,536-dimensional vectors by default — and then store them in a `vector` column in Postgres. At query time you pass a query embedding and `pgvector` returns the rows whose stored embeddings are closest.
+
+## Getting started
+
+<CardGroup cols={2}>
+  <Card title="Enable pgvector and run your first search" icon="magnifying-glass" href="/ai/pgvector">
+    Step-by-step guide from enabling the extension to creating indexes and running similarity queries.
+  </Card>
+  <Card title="Connect an MCP client" icon="plug" href="/ai/mcp-server">
+    One-command setup for Cursor, Claude Code, VS Code, and more.
+  </Card>
+</CardGroup>
+
+## Framework integrations
+
+Neon works with the most popular AI and agent frameworks:
+
+<CardGroup cols={2}>
+  <Card title="LangChain" icon="link" href="https://neon.tech/docs/ai/langchain">
+    Use `NeonPostgres` as a LangChain vector store for retrieval-augmented generation.
+  </Card>
+  <Card title="LlamaIndex" icon="file-lines" href="https://neon.tech/docs/ai/llamaindex">
+    Build RAG applications with LlamaIndex and Neon as the vector backend.
+  </Card>
+  <Card title="LangGraph" icon="diagram-project" href="https://neon.tech/guides/langgraph-neon">
+    Build stateful, multi-actor agent applications with LangGraph and Neon.
+  </Card>
+  <Card title="AgentStack, AutoGen, CrewAI" icon="users" href="/ai/ai-agents">
+    Integrate Neon with a growing list of agent orchestration frameworks.
+  </Card>
+</CardGroup>
+
+## Starter applications
+
+Neon maintains a set of open-source starter apps that you can fork and deploy immediately:
+
+- [AI chatbot with OpenAI and LlamaIndex](https://github.com/neondatabase/examples/tree/main/ai/llamaindex/chatbot-nextjs) — Next.js
+- [RAG chatbot with OpenAI and LangChain](https://github.com/neondatabase/examples/tree/main/ai/langchain/rag-nextjs) — Next.js
+- [Semantic search with OpenAI and LlamaIndex](https://github.com/neondatabase/examples/tree/main/ai/llamaindex/semantic-search-nextjs) — Next.js
+- [Hybrid search with OpenAI](https://github.com/neondatabase/examples/tree/main/ai/hybrid-search-nextjs) — Next.js
+- [Chat with PDF using LangChain](https://github.com/neondatabase/examples/tree/main/ai/langchain/chat-with-pdf-nextjs) — Next.js
+
+<Tip>
+  Share something you built on the [#showcase](https://discord.gg/neon) channel in the Neon Discord community.
+</Tip>

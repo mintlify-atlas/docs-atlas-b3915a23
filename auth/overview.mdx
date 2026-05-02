@@ -1,0 +1,83 @@
+---
+title: "Neon Auth: managed authentication overview"
+description: "Neon Auth stores users, sessions, and auth config directly in your Postgres database, so your auth state branches with your data automatically."
+keywords: ["neon auth", "authentication", "jwt", "sessions", "branching", "better auth"]
+---
+
+Neon Auth is a managed authentication service built into Neon. Instead of syncing users between a third-party identity provider and your database, Neon Auth stores everything (users, sessions, and OAuth configuration) directly in your Neon database under the `neon_auth` schema. This means authentication branches with your data: every time you create a branch, you get a fully isolated auth environment with its own users and sessions.
+
+## How it works
+
+When you enable Neon Auth on a project, Neon deploys a managed auth service in the same region as your database. Your application communicates with this service via the SDK; the service validates credentials and writes auth state directly to your database.
+
+```
+Your App (SDK)
+    ↓ HTTP
+Neon Auth Service
+    ↓ SQL
+Your Neon Database (neon_auth schema)
+```
+
+All auth data is stored in your database and queryable with SQL. There's no external identity service to configure or keep in sync.
+
+## Key concepts
+
+**Users and sessions**
+
+When someone signs up or signs in, Neon Auth creates a user record in `neon_auth.user` and a session in `neon_auth.session`. You can query these tables directly:
+
+```sql
+SELECT id, email, "emailVerified", "createdAt"
+FROM neon_auth.user
+ORDER BY "createdAt" DESC;
+```
+
+**JWT tokens**
+
+After sign-in, Neon Auth issues a JWT containing the user's ID in the `sub` claim. Your application passes this token to the [Data API](/data-api/overview) to authenticate database queries and enforce Row-Level Security policies.
+
+```json
+{
+  "sub": "dc42fa70-09a7-4038-a3bb-f61dda854910",
+  "email": "user@example.com",
+  "role": "authenticated",
+  "exp": 1763848395
+}
+```
+
+**Branching**
+
+Because auth data lives in your database, it branches with it. When you create a Neon branch (for a pull request preview, a staging environment, or a developer sandbox), you get an exact copy of your auth state at that point in time. Each branch gets its own Auth API URL, so tokens issued in one branch are not valid in another.
+
+## Built on Better Auth
+
+Neon Auth is powered by [Better Auth](https://www.better-auth.com/), giving you a well-documented, community-supported API. You can use Better Auth UI components directly or call auth methods to build your own sign-in UI. Neon Auth currently supports Better Auth version **1.4.18**.
+
+## Availability
+
+Neon Auth is available on all Neon plans with the following MAU (Monthly Active User) limits:
+
+| Plan     | MAU limit |
+| -------- | --------- |
+| Free     | 60,000    |
+| Launch   | 1,000,000 |
+| Scale    | 1,000,000 |
+
+Neon Auth is currently available on AWS regions only. It is not compatible with projects that have IP Allow or Private Networking enabled.
+
+## Quick navigation
+
+<CardGroup cols={2}>
+  <Card title="Get started" icon="rocket" href="/auth/quick-start">
+    Install the SDK and add sign-up and sign-in to your app in minutes.
+  </Card>
+  <Card title="Authentication flow" icon="arrow-right-arrow-left" href="https://neon.tech/docs/auth/authentication-flow">
+    Understand how sign-in works from SDK call to session creation.
+  </Card>
+  <Card title="Branching authentication" icon="git-branch" href="https://neon.tech/docs/auth/branching-authentication">
+    How auth data is isolated per branch for safe testing and previews.
+  </Card>
+  <Card title="Data API" icon="database" href="/data-api/overview">
+    Query your database over HTTP using JWT tokens from Neon Auth.
+  </Card>
+</CardGroup>

@@ -1,0 +1,83 @@
+---
+title: "Neon security overview"
+description: "How Neon protects your data: encryption in transit and at rest, network isolation, access controls, audit logging, and the shared responsibility model."
+---
+
+Neon is built with security at every layer. Connections are encrypted with SSL/TLS, data at rest is protected with AES-256 encryption, and network-level controls let you restrict which IPs and networks can reach your databases. This page summarizes what Neon provides and what you're responsible for configuring on your end.
+
+## Encryption in transit
+
+All connections to Neon require SSL/TLS. Neon rejects plaintext connections. You can choose from three SSL modes depending on the level of verification your client requires:
+
+| `sslmode`     | What it verifies                                                         |
+| ------------- | ------------------------------------------------------------------------ |
+| `require`     | Enforces encryption; verifies the server certificate.                    |
+| `verify-ca`   | Verifies that the certificate is signed by a trusted CA.                 |
+| `verify-full` | Full hostname verification, expiration checks, and revocation checks.    |
+
+Neon recommends `verify-full` for all production connections. You can also add `channel_binding=require` to enable mutual authentication with SCRAM-SHA-256-PLUS, which strengthens protection against man-in-the-middle attacks even when `sslmode=require` is used.
+
+```text
+postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=verify-full&channel_binding=require
+```
+
+For setup instructions and certificate paths by operating system, see [Connect to Neon securely](/connect/overview).
+
+## Encryption at rest
+
+Data stored on Neon's compute instances is encrypted using AES-256 via a hardware module on the underlying NVMe SSD volumes. Encryption keys are managed through AWS KMS or Azure Key Vault, with key rotation policies in place.
+
+## Network isolation and access controls
+
+Neon provides several layers of network-level protection you can configure:
+
+- **IP allowlists** — Restrict connections to specific IP addresses or CIDR ranges. Available on Scale plans. See [Restrict database access with IP allowlists](/security/ip-allow).
+- **Protected branches** — Prevent deletion, reset, or archiving of branches that hold production or sensitive data. IP allowlists can be scoped to protected branches only.
+- **Private Networking** — Connect to Neon via AWS PrivateLink without touching the public internet. Available to Organization accounts.
+
+## Password enforcement
+
+Neon enforces a minimum of 60-bit entropy for all Postgres role passwords. Passwords created through the Neon Console, API, and CLI are generated to meet this requirement automatically. Passwords created via SQL are validated at creation time.
+
+## Audit logging
+
+For HIPAA-enabled projects, Neon captures a comprehensive audit trail including Neon Console and API actions and Postgres-level queries via the `pgaudit` extension. See [Compliance certifications and data privacy](/security/compliance) for details on enabling HIPAA compliance.
+
+## GitHub secret scanning
+
+Neon is a GitHub Secret Scanning Partner. If a Neon database credential or API key is detected in a GitHub repository, GitHub notifies Neon automatically. The credential is validated and the Neon security team is alerted.
+
+To reduce the risk of credential exposure:
+
+- Use environment variables rather than hardcoding credentials.
+- Store secrets in a secrets manager such as AWS Secrets Manager or HashiCorp Vault.
+- Rotate database credentials and API keys regularly.
+
+For any security concerns, contact [security@neon.tech](mailto:security@neon.tech).
+
+## Shared responsibility model
+
+Neon manages the underlying infrastructure, encryption keys, network segmentation, vulnerability scanning, and annual compliance audits. You're responsible for:
+
+- Choosing the right SSL mode and configuring your clients accordingly.
+- Setting strong passwords and rotating credentials.
+- Configuring IP allowlists and protected branches for sensitive data.
+- Ensuring PHI is stored only in data rows and never in metadata, column names, or logs.
+- Managing role-based access within your Postgres databases.
+
+## Security topics
+
+<CardGroup cols={2}>
+  <Card title="Compliance certifications" icon="shield-check" href="/security/compliance">
+    SOC 2, HIPAA, GDPR, ISO 27001, and how to request compliance documents.
+  </Card>
+  <Card title="IP allowlists" icon="list-check" href="/security/ip-allow">
+    Restrict database access to trusted IP addresses and CIDR ranges.
+  </Card>
+  <Card title="Connect securely" icon="lock" href="/connect/overview">
+    Configure SSL modes and certificate verification for your connections.
+  </Card>
+  <Card title="Protected branches" icon="code-branch" href="/manage/branches">
+    Protect production branches from deletion, resets, and unauthorized access.
+  </Card>
+</CardGroup>

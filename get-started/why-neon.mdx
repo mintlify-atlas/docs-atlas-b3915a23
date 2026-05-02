@@ -1,0 +1,90 @@
+---
+title: "Why Neon: the developer case for serverless Postgres"
+description: "What makes Neon different from traditional Postgres: separated storage and compute, instant branching, autoscaling, scale-to-zero, and usage-based pricing."
+---
+
+Neon is a fully managed, serverless Postgres platform built from the ground up for modern application development. It runs standard Postgres — fully compatible with every driver, ORM, and extension you already use — but it's designed differently from traditional managed Postgres, in ways that change how you build, test, and scale.
+
+## What "serverless Postgres" actually means
+
+Traditional managed Postgres runs on a provisioned virtual machine. You pick an instance size, pay for it whether or not your app is busy, and plan for peak capacity in advance. Scaling means moving to a bigger VM, often with downtime.
+
+Neon takes a different approach. Its architecture decouples storage and compute entirely:
+
+- **Storage is distributed, durable, and versioned** — data lives in cloud object storage, replicated across availability zones, and retains a full history of changes.
+- **Compute is stateless and ephemeral** — compute processes attach to that storage when queries arrive and can be started, stopped, or resized at any time without touching the data.
+
+This separation is not a product layer on top of Postgres — it's the foundation. It's what makes autoscaling, scale-to-zero, instant branching, and instant restores possible without adding operational complexity.
+
+## Key capabilities
+
+<Columns cols={2}>
+  <Card title="Autoscaling" icon="arrow-up-right-dots">
+    Neon continuously monitors CPU load, memory usage, and working set size and adjusts compute in near-real time — up during traffic spikes, down when load drops. You set a minimum and maximum, and Neon handles the rest. No restarts, no downtime.
+  </Card>
+  <Card title="Scale to zero" icon="power-off">
+    Databases that aren't receiving queries automatically scale down to zero after 5 minutes of inactivity by default. Cold starts take less than 500 milliseconds. This makes it practical to run large numbers of non-production databases at near-zero cost.
+  </Card>
+  <Card title="Instant branching" icon="code-branch">
+    Clone your entire database — schema and data — in about one second, regardless of its size. Branches use copy-on-write storage: pages are only physically copied when they're modified. Each branch gets its own connection string and is fully isolated from its parent.
+  </Card>
+  <Card title="Instant restores" icon="clock-rotate-left">
+    Restore your database to any point in time in seconds, not minutes or hours. Because Neon retains a versioned history of all page states, a restore re-anchors the database to a known point in history — no data copy required.
+  </Card>
+  <Card title="Usage-based pricing" icon="receipt">
+    You pay for the compute time and storage your workload actually uses. There's no upfront commitment, no reserved instances, and no forced add-ons. Idle databases don't cost compute.
+  </Card>
+  <Card title="On-demand storage" icon="database">
+    Storage expands automatically as data grows. You never provision disk upfront, estimate capacity, or deal with full-disk errors. Storage and compute scale independently.
+  </Card>
+</Columns>
+
+## Developer experience
+
+Neon's architecture enables a set of features that change how development teams work day-to-day.
+
+### Branching for development, previews, and testing
+
+Instead of sharing a single staging database or managing separate instances, teams use Neon branches as isolated, disposable environments:
+
+- **Branch per developer** — each engineer works against their own isolated database, avoiding schema conflicts and shared state.
+- **Branch per pull request** — preview deployments get production-like data automatically, without manual setup.
+- **Branch per CI run** — test suites start from a clean, known state every time.
+- **Branch reset** — reset a branch to match its parent with a single command whenever you need a fresh start.
+
+### Standard Postgres compatibility
+
+Neon is not "Postgres-like." It is Postgres. You can connect with any driver, use any ORM, enable standard extensions, and run existing migrations without changes. If it works with Postgres, it works with Neon.
+
+### API-first and automation-ready
+
+Every operation in Neon — creating projects, branches, and databases; managing roles; resetting branches; reading connection strings — is available through the [Neon API](https://api-docs.neon.tech) and [Neon CLI](/reference/neon-cli). Teams can automate database lifecycle management the same way they automate code deployments.
+
+## Who uses Neon
+
+### Individual developers and side projects
+
+Neon's Free Plan is designed to be useful, not just available. It includes up to 100 projects, 0.5 GB of storage per project, and compute that scales to zero when idle so you don't burn through limits on inactive projects. You get a connection string in seconds and can start building without configuring infrastructure.
+
+### Startups shipping fast
+
+Small teams need to move quickly without getting tangled in database operations. Neon's autoscaling handles unpredictable traffic, branching replaces manual staging environment setup, and instant restores lower the stakes when something goes wrong. The [Neon API](/reference/api-reference) makes it straightforward to automate most database operations.
+
+### Platforms and AI agents at scale
+
+Platforms that provision databases on behalf of users — developer tools, codegen platforms, multi-tenant SaaS products — need a database that can be provisioned in milliseconds, scaled to zero when idle, and managed entirely through an API. Neon powers platforms like Replit that deploy thousands of databases per day. Scale-to-zero makes per-app databases economically viable even at high volume.
+
+## The architecture behind it
+
+At the highest level, Neon treats the object store as the system of record. WAL records and page versions are written directly to durable object storage, not to local disk. The consequences:
+
+- Durability no longer depends on a single machine or attached disk.
+- Storage scales independently, effectively without limits.
+- Recovery is a metadata operation, not a data copy.
+- The full history of the database is retained natively — not reconstructed from backups.
+
+With history preserved in a versioned storage engine, entire databases can be branched or restored instantly. Computes are stateless processes that attach to storage at a specific point in that history, execute queries, and can be stopped or resized at any time without data loss.
+
+<Note>
+  In May 2025, Neon joined Databricks. Neon's architectural foundation also powers [Lakebase](https://www.databricks.com/product/lakebase), Databricks' transactional database offering. See [Neon and Lakebase](/reference/plans) for a comparison of both products.
+</Note>

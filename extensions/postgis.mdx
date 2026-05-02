@@ -1,0 +1,177 @@
+---
+title: "PostGIS: geospatial queries in Neon Postgres"
+description: "Enable PostGIS on Neon to store geometry and geography data, run spatial queries, and index locations for proximity search and bounding box operations."
+---
+
+The `postgis` extension adds full geospatial support to Postgres. It introduces spatial data types (`GEOMETRY` and `GEOGRAPHY`), hundreds of spatial functions, and GiST-based spatial indexes. PostGIS is widely used for mapping, routing, urban planning, environmental science, and any application that works with coordinates, shapes, or distances on the Earth's surface.
+
+## Enable PostGIS
+
+Run the following statement from the [Neon SQL Editor](https://console.neon.tech) or a connected client such as `psql`:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+```
+
+<Note>
+For information about related extensions — including `pgrouting`, `h3_postgis`, `postgis_sfcgal`, and `postgis_tiger_geocoder` — see the [PostGIS-related extensions](/extensions/postgis) page.
+</Note>
+
+## Spatial data types
+
+PostGIS provides two primary spatial types:
+
+- **`GEOMETRY`**: Stores spatial shapes in a flat Cartesian coordinate plane. Coordinates are in the units of the associated spatial reference system (SRS). Use this type for local or projected coordinate systems.
+- **`GEOGRAPHY`**: Stores shapes as coordinates in degrees of longitude and latitude on the Earth's surface. Distance calculations account for the Earth's curvature. When you pass a distance to a geography function, the unit is meters.
+
+Both types support points, lines, polygons, and multi-geometry collections. Choose `GEOGRAPHY` when your coordinates are WGS 84 longitude/latitude and you need accurate real-world distance calculations. Use `GEOMETRY` when you're working in a local or projected coordinate space and need maximum flexibility.
+
+## Example: Store and query bus stop locations
+
+This walkthrough shows how to store point locations, insert real-world coordinates, and query by proximity.
+
+<Steps>
+  <Step title="Create a table with a geography column">
+    ```sql
+    CREATE TABLE bus_stops (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255),
+        location GEOGRAPHY(Point)
+    );
+    ```
+
+    The `GEOGRAPHY(Point)` column stores points as WGS 84 longitude/latitude pairs.
+  </Step>
+  <Step title="Insert locations">
+    Use `ST_Point(longitude, latitude)` to create point values from coordinates:
+
+    ```sql
+    INSERT INTO bus_stops (name, location)
+    VALUES
+        ('Main St & 3rd Ave', ST_Point(-73.935242, 40.730610)),
+        ('Elm St & 5th Ave', ST_Point(-73.991070, 40.730824));
+    ```
+  </Step>
+  <Step title="Find stops within a radius">
+    `ST_DWithin` returns rows where the distance between two geography values is within the specified limit. The unit is meters when using the `GEOGRAPHY` type.
+
+    ```sql
+    SELECT name FROM bus_stops
+    WHERE ST_DWithin(location, ST_Point(-73.95, 40.7305)::GEOGRAPHY, 2000);
+    ```
+
+    This returns all stops within 2,000 meters (2 km) of the reference point.
+  </Step>
+</Steps>
+
+## Example: Landmarks, roads, and spatial analysis
+
+This longer example creates a small dataset of landmarks and roads, then demonstrates several common spatial query patterns.
+
+### Create the test dataset
+
+```sql
+CREATE TABLE landmarks (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    location GEOMETRY(Point)
+);
+
+CREATE TABLE roads (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    path GEOMETRY(LineString)
+);
+
+INSERT INTO landmarks (name, location)
+VALUES
+    ('Park', ST_Point(100, 200)),
+    ('Museum', ST_Point(200, 300)),
+    ('Library', ST_Point(300, 200));
+
+INSERT INTO roads (name, path)
+VALUES
+    ('Main Street', ST_MakeLine(ST_Point(100, 200), ST_Point(200, 300))),
+    ('Second Street', ST_MakeLine(ST_Point(200, 300), ST_Point(300, 200)));
+```
+
+### Proximity search: nearest landmark
+
+Find the landmark closest to a given point using `ST_Distance`:
+
+```sql
+SELECT name, ST_Distance(location, ST_GeomFromText('POINT(150 250)')) AS distance
+FROM landmarks
+ORDER BY distance
+LIMIT 1;
+```
+
+### Bounding area: buffer zone with road intersection
+
+Create a buffer of 50 units around each landmark and find which roads intersect those zones. `ST_Buffer` computes a polygon of the specified radius around the input geometry, and `ST_Intersects` tests whether two geometries share any space.
+
+```sql
+SELECT l.name AS landmark, r.name AS road
+FROM landmarks l, roads r
+WHERE ST_Intersects(r.path, ST_Buffer(l.location, 50));
+```
+
+### Road intersection check
+
+Find pairs of roads that intersect each other:
+
+```sql
+SELECT a.name AS name_a, b.name AS name_b
+FROM roads a, roads b
+WHERE a.id < b.id AND ST_Intersects(a.path, b.path);
+```
+
+### Line of sight between landmarks
+
+Check whether a direct line between two landmarks is blocked by any road. `ST_MakeLine` constructs a line between two points, and `ST_Intersects` checks for a crossing:
+
+```sql
+SELECT 'No direct line of sight' AS info
+FROM landmarks l1, landmarks l2, roads r
+WHERE
+    l1.name = 'Park' AND l2.name = 'Library'
+    AND ST_Intersects(ST_MakeLine(l1.location, l2.location), r.path)
+LIMIT 1;
+```
+
+## Spatial indexes
+
+Spatial indexes dramatically improve query performance on large datasets. PostGIS uses **GiST** (Generalized Search Tree) indexes, which are well-suited for multidimensional data such as points, lines, and polygons.
+
+Create a GiST index on a geometry or geography column:
+
+```sql
+CREATE INDEX ON landmarks USING GIST (location);
+```
+
+Once the index exists, spatial predicate functions such as `ST_DWithin`, `ST_Intersects`, and `ST_Within` can use it to avoid full table scans.
+
+<Tip>
+Create spatial indexes after loading your initial dataset. Index creation on an existing table with data is faster than maintaining the index row-by-row during bulk inserts.
+</Tip>
+
+## Commonly used spatial functions
+
+| Function | Description |
+| -------- | ----------- |
+| `ST_Point(lon, lat)` | Create a point from longitude and latitude values. |
+| `ST_GeomFromText(wkt)` | Parse a WKT string (e.g., `'POINT(100 200)'`) into a geometry. |
+| `ST_MakeLine(p1, p2)` | Create a line between two points. |
+| `ST_Buffer(geom, radius)` | Return a polygon of the given radius around a geometry. |
+| `ST_Distance(a, b)` | Straight-line distance between two geometries. |
+| `ST_DWithin(a, b, dist)` | `true` if the distance between `a` and `b` is within `dist`. |
+| `ST_Intersects(a, b)` | `true` if two geometries share any point in space. |
+| `ST_Within(a, b)` | `true` if `a` is completely inside `b`. |
+| `ST_Area(geom)` | Area of a polygon geometry. |
+| `ST_Length(geom)` | Length of a line geometry. |
+
+## Performance considerations
+
+- **Avoid unnecessary casting between `GEOMETRY` and `GEOGRAPHY`**: The conversion is computationally expensive. Store data in whichever type you query most frequently.
+- **Match coordinate precision to your use case**: Reducing coordinate precision to the number of decimal places you actually need can improve performance.
+- **Use `ST_DWithin` instead of `ST_Distance` for range queries**: `ST_DWithin` can use a spatial index; comparing the result of `ST_Distance` to a threshold generally cannot.

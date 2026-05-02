@@ -1,0 +1,152 @@
+---
+title: "Create your first Neon project and database branch"
+description: "Sign up for Neon, create a project, and learn database branching — from the console dashboard to your first isolated schema change."
+---
+
+Neon gives you a fully managed, serverless Postgres database in seconds. This guide walks you through signing up, creating a project, exploring the dashboard, and making your first schema change on an isolated development branch — so you understand how Neon fits into a real workflow.
+
+<Steps>
+  <Step title="Sign up">
+    Go to [console.neon.tech/signup](https://console.neon.tech/signup) and create a free account using your email, GitHub, or Google.
+
+    <Note>
+      The Free Plan includes up to 100 projects, compute with up to 2 CPUs, and 0.5 GB of storage per project — enough to build and test real applications. See [Neon plans](/reference/plans) for a full comparison.
+    </Note>
+  </Step>
+
+  <Step title="Create a project">
+    After signing up, Neon guides you through creating your first **project**. A project is the top-level container for everything: branches, databases, roles, and compute endpoints.
+
+    A few things happen automatically:
+
+    - A **`production` branch** is created as your default branch. It hosts your database, role, and a compute endpoint you can connect to immediately.
+    - A **database** named `neondb` is created on that branch.
+    - A **role** is created to own the database.
+
+    <Tip>
+      Create one project per application repository. This lets you manage database branches the same way you manage code branches: production, staging, development, feature previews, and so on.
+    </Tip>
+  </Step>
+
+  <Step title="Explore the dashboard">
+    Once your project is created, you land on the **Project Dashboard**. Here's what each piece means:
+
+    | Concept | What it is |
+    |---|---|
+    | **Project** | Top-level container. Maps to one application or repository. |
+    | **Branch** | An isolated copy of your database. `production` is the default. |
+    | **Database** | A Postgres database inside a branch. Default name: `neondb`. |
+    | **Role** | The Postgres user that owns the database and is used to connect. |
+    | **Connection string** | The full URL your application uses to connect to a specific branch and database. |
+
+    Click **Connect** on the dashboard to open the **Connection Details** modal. Select your branch, database, and role — your connection string appears automatically:
+
+    ```text
+    postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require
+    ```
+
+    Store this in an environment variable like `DATABASE_URL` rather than hardcoding it in your application.
+  </Step>
+
+  <Step title="Add sample data with the SQL Editor">
+    From the sidebar, open the **SQL Editor**. Your `production` branch and `neondb` database are pre-selected.
+
+    The editor loads placeholder SQL to create a sample table. Run it by clicking **Run**:
+
+    ```sql
+    CREATE TABLE IF NOT EXISTS playing_with_neon(id SERIAL PRIMARY KEY, name TEXT NOT NULL, value REAL);
+    INSERT INTO playing_with_neon(name, value)
+      SELECT LEFT(md5(i::TEXT), 10), random() FROM generate_series(1, 10) s(i);
+    ```
+
+    Every query you run is automatically saved with an AI-generated description. Click **History** in the SQL Editor to review past queries.
+
+    <Tip>
+      The SQL Editor also includes an **AI Assistant**. Try prompts like "Show me the highest value in the table" or "Add three rows with tech company names" to generate and run queries using natural language.
+    </Tip>
+  </Step>
+
+  <Step title="Create a development branch">
+    Now create an isolated copy of your `production` branch to work in safely.
+
+    1. Navigate to the **Branches** page and click **Create branch**.
+    2. Name it `development`, select `production` as the parent, and click **Create new branch**.
+
+    Your `development` branch starts as an exact copy of `production` — same schema, same data — and is completely isolated. Changes you make here won't affect `production`.
+
+    Each branch has its own unique connection string, so you can point your local app at `development` without touching `production` at all.
+  </Step>
+
+  <Step title="Make a schema change on your development branch">
+    Install the [Neon CLI](https://neon.tech/docs/reference/neon-cli) if you haven't already:
+
+    <CodeGroup>
+
+    ```bash macOS (Homebrew)
+    brew install neonctl
+    ```
+
+    ```bash npm (all platforms)
+    npm install -g neonctl
+    ```
+
+    </CodeGroup>
+
+    Authenticate the CLI:
+
+    ```bash
+    neon auth
+    ```
+
+    Get your project ID:
+
+    ```bash
+    neon projects list
+    ```
+
+    Connect directly to your `development` branch via `psql`:
+
+    ```bash
+    neon connection-string development --database-name neondb --project-id <your-project-id> --psql
+    ```
+
+    Once connected, add a column and index:
+
+    ```sql
+    ALTER TABLE playing_with_neon ADD COLUMN description TEXT;
+    CREATE INDEX idx_playing_with_neon_description ON playing_with_neon (description);
+    ```
+
+    <Note>
+      These changes exist only on the `development` branch. Your `production` branch is untouched.
+    </Note>
+  </Step>
+
+  <Step title="Compare branches with Schema Diff">
+    From the **Branches** page, open your `development` branch and click **Open schema diff**. Select `production` and `development`, then click **Compare**.
+
+    You'll see the new column and index highlighted — confirming that your schema changes are isolated from `production`.
+
+    This is a core part of the Neon workflow: make changes safely on a branch, verify the diff, then merge or reset when ready.
+  </Step>
+
+  <Step title="Reset your development branch">
+    When you're done experimenting, reset your `development` branch back to the current state of `production`:
+
+    ```bash
+    neon branches reset development --parent --project-id <your-project-id>
+    ```
+
+    This discards all changes on `development` and brings it back in sync with `production` — a clean slate for the next task. Run Schema Diff again to confirm they're identical.
+
+    <Tip>
+      Branch reset works like `git reset --hard parent`. Use it after merging a feature, when abandoning a direction, or as part of your CI/CD automation to ensure every new task starts from a known good state.
+    </Tip>
+  </Step>
+</Steps>
+
+You've completed the core Neon workflow: create a project, explore the dashboard, add data, branch for development, make schema changes safely, and reset when done. From here, you're ready to connect Neon to your application stack.
+
+<Note>
+  **Additional branching features:** Neon also supports [schema-only branching](/features/branching) for working with sensitive data (no production data copied), and [branch expiration](/manage/branches) to automatically clean up temporary branches after a set period.
+</Note>

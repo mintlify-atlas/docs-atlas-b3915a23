@@ -1,0 +1,194 @@
+---
+title: "Connect to Neon from your application or framework"
+description: "Get your Neon connection string and use it with Node.js, Python, Go, Drizzle, Prisma, psql, or any other Postgres-compatible driver or ORM."
+---
+
+Connecting to Neon works exactly like connecting to any Postgres database. You get a standard connection string from the Neon console and use it with the driver, ORM, or tool of your choice. This page shows you how to get that string and use it across the most common environments.
+
+## Get your connection string
+
+From your **Project Dashboard**, click the **Connect** button to open the **Connection Details** modal. Select your branch, database, and role — your connection string is generated automatically.
+
+```text
+postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require
+             ^    ^         ^                                                 ^
+       role -|    |         |- hostname                                       |- database
+                  |
+                  |- password
+```
+
+The hostname encodes the compute endpoint. Each branch in your project gets a unique hostname, so you can switch environments simply by swapping the connection string.
+
+<Note>
+  Neon supports both **direct** and **pooled** connections. If your application creates many short-lived connections (common in serverless environments), use the pooled connection string — it has `-pooler` added to the hostname. See [Connection pooling](/connect/connection-pooling) for details.
+</Note>
+
+## Store the connection string safely
+
+Always store your connection string in an environment variable rather than hardcoding it:
+
+```bash
+DATABASE_URL="postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require"
+```
+
+Most frameworks and runtimes read `DATABASE_URL` by convention. Set this variable in your `.env` file locally, and in your hosting platform's environment settings in production.
+
+<Warning>
+  Never commit your connection string to source control. Add `.env` to your `.gitignore` file.
+</Warning>
+
+## Connect from your application
+
+Use your connection string with any Postgres-compatible driver. Here are examples for the most common languages and frameworks:
+
+<CodeGroup>
+
+```javascript Node.js (Neon serverless driver)
+// Works in Node.js, Next.js, serverless, and edge runtimes
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL);
+
+const users = await sql`SELECT * FROM users`;
+```
+
+```javascript Next.js (postgres.js)
+import postgres from 'postgres';
+
+const { PGHOST, PGDATABASE, PGUSER, PGPASSWORD } = process.env;
+
+const conn = postgres({
+  host: PGHOST,
+  database: PGDATABASE,
+  username: PGUSER,
+  password: PGPASSWORD,
+  port: 5432,
+  ssl: 'require',
+});
+
+const users = await conn`SELECT * FROM users`;
+```
+
+```javascript Drizzle ORM
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+
+const sql = neon(process.env.DATABASE_URL);
+const db = drizzle(sql);
+
+const result = await db.select().from(usersTable);
+```
+
+```javascript Prisma
+import { neon } from '@neondatabase/serverless';
+import { PrismaNeonHTTP } from '@prisma/adapter-neon';
+import { PrismaClient } from '@prisma/client';
+
+const sql = neon(process.env.DATABASE_URL);
+const adapter = new PrismaNeonHTTP(sql);
+const prisma = new PrismaClient({ adapter });
+```
+
+```python Python (psycopg2)
+import os
+import psycopg2
+
+database_url = os.getenv('DATABASE_URL')
+
+conn = psycopg2.connect(database_url)
+
+with conn.cursor() as cur:
+    cur.execute("SELECT version()")
+    print(cur.fetchone())
+
+conn.close()
+```
+
+```go Go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    "log"
+    "os"
+
+    _ "github.com/lib/pq"
+    "github.com/joho/godotenv"
+)
+
+func main() {
+    err := godotenv.Load()
+    if err != nil {
+        log.Fatalf("Error loading .env file: %v", err)
+    }
+
+    connStr := os.Getenv("DATABASE_URL")
+    if connStr == "" {
+        panic("DATABASE_URL environment variable is not set")
+    }
+
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    var version string
+    if err := db.QueryRow("select version()").Scan(&version); err != nil {
+        panic(err)
+    }
+    fmt.Printf("version=%s\n", version)
+}
+```
+
+```bash psql
+psql "postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require"
+```
+
+</CodeGroup>
+
+## Connect with psql
+
+If you just want to explore your database from the terminal, pass the connection string directly to `psql`:
+
+```bash
+psql "postgresql://alex:AbC123dEf@ep-cool-darkness-123456.us-east-2.aws.neon.tech/dbname?sslmode=require"
+```
+
+You can also use the Neon CLI to connect without copying the string manually:
+
+```bash
+neon connection-string <branch-name> --database-name neondb --project-id <your-project-id> --psql
+```
+
+## Connection string anatomy
+
+| Part | Example | Description |
+|---|---|---|
+| Role | `alex` | The Postgres user (role) |
+| Password | `AbC123dEf` | Role password |
+| Hostname | `ep-cool-darkness-123456.us-east-2.aws.neon.tech` | Compute endpoint — unique per branch |
+| Database | `dbname` | Postgres database name |
+| SSL mode | `sslmode=require` | Required for all Neon connections |
+
+<Tip>
+  The Neon serverless driver (`@neondatabase/serverless`) works over HTTP and WebSockets instead of a raw TCP connection. It's the best choice for serverless and edge runtimes like Vercel Edge Functions, Cloudflare Workers, and AWS Lambda where TCP connections are restricted.
+</Tip>
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Framework guides" icon="gamepad" href="/connect/frameworks">
+    Step-by-step guides for Next.js, Remix, Django, Rails, and more.
+  </Card>
+  <Card title="Language guides" icon="code" href="/connect/frameworks">
+    Connection examples for JavaScript, Python, Go, Rust, and other languages.
+  </Card>
+  <Card title="Serverless driver" icon="bolt" href="/connect/serverless-driver">
+    Connect from edge and serverless runtimes using HTTP or WebSockets.
+  </Card>
+  <Card title="Connection pooling" icon="layer-group" href="/connect/connection-pooling">
+    Use pooled connections to handle high concurrency efficiently.
+  </Card>
+</Columns>

@@ -1,133 +1,78 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
-icon: 'star'
+title: "Neon: Serverless Postgres for modern developers"
+description: "Neon is a serverless Postgres platform with autoscaling, database branching, instant restore, and a built-in Data API. Get started for free."
 ---
 
-## Setting up
+Neon is serverless Postgres built for developers who need speed, scale, and simplicity. With autoscaling compute, copy-on-write database branching, and instant restore, Neon lets you focus on shipping — not managing infrastructure.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Get Started" icon="rocket" href="/get-started/signing-up">
+    Sign up for free and create your first Neon project in under a minute.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Connect Your Stack" icon="plug" href="/get-started/connect-neon">
+    Connect Neon to your favorite framework, ORM, or language.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Database Branching" icon="code-branch" href="/features/branching">
+    Branch your database like you branch your code — instant, isolated, and free.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Neon CLI & API" icon="terminal" href="/reference/neon-cli">
+    Automate everything with the Neon CLI, REST API, or SDKs.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What makes Neon different
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="Autoscaling" icon="chart-line" href="/features/autoscaling">
+    Compute scales up under load and back down automatically — no manual sizing.
+  </Card>
+  <Card title="Scale to Zero" icon="moon" href="/features/scale-to-zero">
+    Idle databases pause automatically to eliminate waste on dev and test.
+  </Card>
+  <Card title="Instant Restore" icon="clock-rotate-left" href="/features/instant-restore">
+    Restore any branch to any point in time within your retention window.
+  </Card>
+  <Card title="Read Replicas" icon="copy" href="/features/read-replicas">
+    Add read replicas instantly to offload analytics and improve throughput.
+  </Card>
+  <Card title="Neon Auth" icon="lock" href="/auth/overview">
+    Built-in managed authentication that branches alongside your database.
+  </Card>
+  <Card title="AI & pgvector" icon="microchip" href="/ai/introduction">
+    Store and query vector embeddings at scale using the pgvector extension.
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Get up and running
 
-## Make your content agent ready
+<Steps>
+  <Step title="Create a free account">
+    Sign up at [console.neon.tech](https://console.neon.tech) — no credit card required. Your project is ready in seconds.
+  </Step>
+  <Step title="Connect to your app">
+    Copy your connection string from the Neon Console and plug it into your application. Neon is fully Postgres-compatible — no driver changes needed.
+  </Step>
+  <Step title="Try branching">
+    Create a database branch for your feature branch. Run schema migrations safely without touching production.
+  </Step>
+  <Step title="Scale with confidence">
+    Enable autoscaling and set a max compute size. Neon handles traffic spikes automatically so you never over-provision.
+  </Step>
+</Steps>
 
-Make your docs work for humans and AI agents alike.
+## Explore by topic
 
-<Columns cols={2}>
-  <Card
-    title="Prompt component"
-    icon="robot"
-    href="/agent-ready/prompt"
-  >
-    Embed shareable AI prompts readers can copy or open in Cursor.
+<CardGroup cols={2}>
+  <Card title="Migration guides" icon="database" href="/import/overview">
+    Move from RDS, Supabase, Heroku, or any Postgres provider with step-by-step guides.
   </Card>
-  <Card
-    title="Visibility"
-    icon="eye"
-    href="/agent-ready/visibility"
-  >
-    Show different content to humans and agents reading your docs.
+  <Card title="Extensions" icon="puzzle-piece" href="/extensions/overview">
+    Enable PostGIS, pgvector, pg_cron, and 50+ Postgres extensions with one click.
   </Card>
-  <Card
-    title="Contextual menu"
-    icon="bolt"
-    href="/agent-ready/contextual"
-  >
-    Give readers one-click access to Claude, ChatGPT, Cursor, and more.
+  <Card title="Security & compliance" icon="shield-halved" href="/security/overview">
+    SOC 2 Type 2, HIPAA, IP allowlists, and more.
   </Card>
-  <Card
-    title="AI coding tools"
-    icon="wand-magic-sparkles"
-    href="/ai-tools/claude-code"
-  >
-    Set up Claude Code, Cursor, or Windsurf with Mintlify's skill.
+  <Card title="MCP server for AI agents" icon="robot" href="/ai/mcp-server">
+    Connect AI coding agents like Cursor and Claude Code directly to your Neon database.
   </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+</CardGroup>

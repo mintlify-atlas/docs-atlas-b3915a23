@@ -1,0 +1,199 @@
+---
+title: "Use Neon with AI agents and frameworks"
+description: "Use LangChain, LlamaIndex, LangGraph, and other frameworks with Neon. Install agent skills, connect via MCP, and provision databases for AI agents."
+---
+
+Neon is designed to work well as the database layer for AI agents and agent frameworks. Its serverless architecture means agents can provision and tear down databases instantly, scale to zero when idle, and branch the database to test schema changes safely. This page covers the main integration patterns: installing agent skills to improve code quality from your AI assistant, connecting agent frameworks like LangChain and LlamaIndex, using the MCP server for natural language database control, and building autonomous agents with the Neon API and toolkit.
+
+## Agent skills
+
+Agent Skills give your AI coding assistant structured context about Neon's features, APIs, and best practices. With skills installed, your assistant produces more accurate code and avoids common mistakes — for example, it will use the correct serverless driver import, generate working Drizzle schemas, and know how to set up Neon Auth.
+
+### Install
+
+<Tabs>
+  <Tab title="npx skills (any editor)">
+    ```bash
+    npx skills add neondatabase/agent-skills -s neon-postgres
+    ```
+    Works with Cursor, Claude Code, and any editor that supports the [Agent Skills](https://agentskills.io) format. Add `-g` to install globally instead of at the project level. Add `-y` to skip the interactive prompt.
+  </Tab>
+  <Tab title="neonctl init (recommended)">
+    ```bash
+    npx neonctl@latest init
+    ```
+    Authenticates via OAuth, creates an API key, configures the MCP server, and installs agent skills in one step. After running, restart your editor and ask your assistant **"Get started with Neon"**.
+  </Tab>
+  <Tab title="Cursor plugin">
+    In Cursor Chat, run:
+    ```text
+    /add-plugin neon-postgres
+    ```
+    Or install from [cursor.com/marketplace/neon](https://cursor.com/marketplace/neon). Bundles skills and the Neon MCP server.
+  </Tab>
+  <Tab title="Claude Code plugin">
+    ```bash
+    /plugin marketplace add neondatabase/agent-skills
+    /plugin install neon-postgres@neon
+    ```
+    See [Claude Code plugin for Neon](https://neon.tech/docs/ai/ai-claude-code-plugin) for details.
+  </Tab>
+</Tabs>
+
+### Project-level vs. global install
+
+By default, skills are installed at the project level so they're scoped to a single repository. Commit the generated files to share Neon context with your team.
+
+For personal environments where you want Neon context across all projects, install globally:
+
+```bash
+npx skills add neondatabase/agent-skills -s neon-postgres -g
+```
+
+### What the Neon skill covers
+
+With the skill installed, your assistant has guidance on:
+
+- Getting started: project setup, branching, autoscaling, scale-to-zero, instant restore, read replicas
+- Connections: the serverless driver, connection pooling, connection strings
+- Authentication with Neon Auth
+- Data API via `@neondatabase/neon-js`
+- Platform APIs and SDKs: REST API, TypeScript SDK, Python SDK
+- Developer tools: CLI, VS Code extension, MCP server
+
+## AI framework integrations
+
+### LangChain
+
+LangChain's `NeonPostgres` class provides a vector store interface backed by a Neon database. Use it for retrieval-augmented generation (RAG) pipelines and other workloads that need to retrieve semantically similar documents from Postgres.
+
+<CardGroup cols={2}>
+  <Card title="LangChain integration guide" icon="link" href="https://neon.tech/docs/ai/langchain">
+    Full setup instructions, code examples, and connection configuration for LangChain with Neon.
+  </Card>
+  <Card title="RAG chatbot starter (LangChain)" icon="comment" href="https://github.com/neondatabase/examples/tree/main/ai/langchain/rag-nextjs">
+    A Next.js RAG chatbot built with OpenAI and LangChain, ready to fork and deploy.
+  </Card>
+</CardGroup>
+
+### LlamaIndex
+
+LlamaIndex integrates with Neon via its Postgres vector store connector. Use it to index documents and run similarity queries as part of LlamaIndex pipelines and agents.
+
+<CardGroup cols={2}>
+  <Card title="LlamaIndex integration guide" icon="file-lines" href="https://neon.tech/docs/ai/llamaindex">
+    Full setup instructions and examples for building RAG applications with LlamaIndex and Neon.
+  </Card>
+  <Card title="Chat with PDF starter (LlamaIndex)" icon="file-pdf" href="https://github.com/neondatabase/examples/tree/main/ai/llamaindex/chat-with-pdf-nextjs">
+    A Next.js app that lets users chat with a PDF document, built with OpenAI and LlamaIndex.
+  </Card>
+</CardGroup>
+
+### LangGraph
+
+LangGraph builds stateful, multi-actor agent applications on top of LangChain. Use Neon as the persistent state store and vector backend for LangGraph workflows.
+
+<Card title="LangGraph + Neon guide" icon="diagram-project" href="https://neon.tech/guides/langgraph-neon">
+  Step-by-step guide for building stateful multi-actor agents with LangGraph and Neon.
+</Card>
+
+### Other frameworks
+
+<CardGroup cols={2}>
+  <Card title="AgentStack" icon="terminal" href="https://neon.tech/guides/agentstack-neon">
+    Build and deploy AI agents with AgentStack's CLI and Neon integration.
+  </Card>
+  <Card title="Microsoft AutoGen" icon="microsoft" href="https://neon.tech/guides/autogen-neon">
+    Create collaborative multi-agent systems with AutoGen and Neon.
+  </Card>
+  <Card title="Azure AI Agent Service" icon="azure" href="https://neon.tech/guides/azure-ai-agent-service">
+    Build enterprise agents with Azure AI Agent Service backed by Neon.
+  </Card>
+  <Card title="Composio + CrewAI" icon="users" href="https://neon.tech/guides/composio-crewai-neon">
+    Create multi-agent systems with CrewAI using Composio's Neon integration.
+  </Card>
+</CardGroup>
+
+## MCP server for natural language database control
+
+The Neon MCP server lets any MCP-compatible agent manage your Neon database using natural language. It translates requests like "create a branch named staging" or "show all tables in the main database" into Neon API calls.
+
+<Card title="Set up the Neon MCP server" icon="server" href="/ai/mcp-server">
+  Connect Cursor, Claude Code, Windsurf, VS Code, and other clients. Includes quick-setup, OAuth, and API key authentication options.
+</Card>
+
+Once the MCP server is connected, your agent can:
+
+- Create and delete projects, branches, and databases
+- Run SQL queries and inspect schemas
+- Perform branch-based migrations for safer schema changes
+- Search across your Neon resources
+
+## Build autonomous agents programmatically
+
+For agents that need to provision and manage databases at runtime, Neon provides two programmatic interfaces.
+
+### @neondatabase/toolkit
+
+A terse JavaScript client for spinning up Postgres databases and running SQL queries from agent code:
+
+```typescript
+import { NeonToolkit } from "@neondatabase/toolkit";
+
+const toolkit = new NeonToolkit(process.env.NEON_API_KEY!);
+
+// Provision a new database for this agent run
+const project = await toolkit.createProject();
+
+// Run a SQL query
+await toolkit.sql(project, `
+  CREATE TABLE tasks (
+    id SERIAL PRIMARY KEY,
+    description TEXT,
+    embedding VECTOR(1536)
+  )
+`);
+
+// Clean up when done
+await toolkit.deleteProject(project);
+```
+
+<Card title="@neondatabase/toolkit on GitHub" icon="github" href="https://github.com/neondatabase/toolkit">
+  Source code, API reference, and examples for the Neon toolkit client.
+</Card>
+
+### Neon API
+
+For full control over every resource, use the [Neon REST API](https://api-docs.neon.tech/reference/getting-started-with-neon-api) directly. It supports project and branch lifecycle management, compute configuration, and more.
+
+<Card title="Neon API reference" icon="book" href="https://api-docs.neon.tech/reference/getting-started-with-neon-api">
+  Full REST API reference with request and response schemas for every endpoint.
+</Card>
+
+### Database versioning for agents
+
+Codegen platforms and AI agents use Neon's snapshot APIs to version and clone databases, similar to how code is versioned with Git branches. This pattern lets an agent create an isolated branch, run migrations against it, and promote or discard the branch based on the outcome.
+
+<Card title="Database versioning with Neon" icon="code-branch" href="https://neon.tech/docs/ai/ai-database-versioning">
+  How AI agents and codegen platforms use Neon snapshot APIs for safe database versioning.
+</Card>
+
+## Scaling agent workloads
+
+Agent workloads are often bursty: an agent may do a large amount of database work in a short window and then sit idle. Neon handles this well.
+
+**Autoscaling** automatically increases compute when your agent is active and scales back down — to zero when fully idle — when it's not. This is especially useful for agents that run in response to events or scheduled jobs.
+
+**Read replicas** let you offload vector similarity search (a read-only workload) to a dedicated compute. This keeps your primary database available for writes while your agent performs large-scale retrieval operations.
+
+**Branching** lets agents create isolated database copies instantly. An agent can branch, test a migration, verify the result, and either merge or discard the branch — all without affecting the main database.
+
+For detailed scaling guidance, see [Scale your AI application with Neon](https://neon.tech/docs/ai/ai-scale-with-neon).
+
+## GitHub Copilot agents
+
+Neon provides custom agents for GitHub Copilot in VS Code that bring branching-based migrations and query optimization directly into your editor.
+
+<Card title="Neon agents for GitHub Copilot" icon="github" href="https://neon.tech/docs/ai/ai-github-copilot-agents">
+  Safe database migrations and query optimization using Neon branching, built for VS Code.
+</Card>
